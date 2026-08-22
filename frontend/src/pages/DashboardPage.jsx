@@ -40,22 +40,24 @@ export default function DashboardPage() {
   const [agingData, setAgingData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock trend data for rich visualizations
-  const trendData = [
-    { month: 'May 2026', paid: 42000000, upcoming: 0, overdue: 0 },
-    { month: 'Jun 2026', paid: 48000000, upcoming: 0, overdue: 0 },
-    { month: 'Jul 2026', paid: 51000000, upcoming: 0, overdue: 2500000 },
-    { month: 'Aug 2026', paid: 35000000, upcoming: 15000000, overdue: 7500000 },
-    { month: 'Sep 2026', paid: 0, upcoming: 54000000, overdue: 0 },
-    { month: 'Oct 2026', paid: 0, upcoming: 54000000, overdue: 0 },
-  ];
+  // Calculate dynamic service type distribution or empty state when no services exist
+  const serviceTypeData = summary?.service_type_breakdown?.length > 0
+    ? summary.service_type_breakdown
+    : (summary?.active_services_count > 0 
+        ? [{ name: 'Fiber Optic Dedicated', value: 100, color: '#004ac6' }]
+        : []);
 
-  const serviceTypeData = [
-    { name: 'Fiber Optic', value: 45, color: '#004ac6' },
-    { name: 'VSAT Satellite', value: 20, color: '#2563eb' },
-    { name: 'Cloud VPS / Hosting', value: 20, color: '#0284c7' },
-    { name: 'SD-WAN & Routing', value: 15, color: '#7c3aed' },
-  ];
+  // Calculate dynamic 6-month trend data or zeroed metrics when no payments exist
+  const trendData = summary?.monthly_trend?.length > 0
+    ? summary.monthly_trend
+    : [
+        { month: 'May 2026', paid: 0, upcoming: 0, overdue: 0 },
+        { month: 'Jun 2026', paid: 0, upcoming: 0, overdue: 0 },
+        { month: 'Jul 2026', paid: 0, upcoming: 0, overdue: 0 },
+        { month: 'Aug 2026', paid: 0, upcoming: summary?.total_this_month_amount || 0, overdue: summary?.overdue_amount || 0 },
+        { month: 'Sep 2026', paid: 0, upcoming: 0, overdue: 0 },
+        { month: 'Oct 2026', paid: 0, upcoming: 0, overdue: 0 },
+      ];
 
   const COLORS = ['#004ac6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -278,38 +280,46 @@ export default function DashboardPage() {
             <p className="text-xs text-on-surface-variant">Contract distribution by infrastructure type</p>
           </div>
 
-          <div className="h-56 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={serviceTypeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {serviceTypeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(val) => `${val}%`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="space-y-1.5 pt-2 border-t border-outline-variant/30">
-            {serviceTypeData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
-                  <span className="font-medium text-on-surface">{item.name}</span>
-                </div>
-                <span className="font-mono font-bold text-on-surface-variant">{item.value}%</span>
+          {serviceTypeData.length > 0 ? (
+            <>
+              <div className="h-56 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={serviceTypeData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {serviceTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(val) => `${val}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-outline-variant/30">
+                {serviceTypeData.map((item, index) => (
+                  <div key={item.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color || COLORS[index % COLORS.length] }}></span>
+                      <span className="font-medium text-on-surface">{item.name}</span>
+                    </div>
+                    <span className="font-mono font-bold text-on-surface-variant">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-56 w-full flex items-center justify-center text-xs text-slate-400 font-medium border border-dashed border-slate-200 rounded-xl">
+              Belum ada data sirkuit / layanan terdaftar.
+            </div>
+          )}
         </div>
       </div>
 
