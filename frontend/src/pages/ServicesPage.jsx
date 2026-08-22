@@ -440,8 +440,26 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     setImporting(true);
     setImportProgress(0);
 
-    const defaultStId = serviceTypes[0]?.id || 1;
-    const defaultCustId = customers.find((c) => c.customer_name.toLowerCase().includes('alfa'))?.id || customers[0]?.id || 1;
+    // Fetch latest fresh options from backend API
+    let latestCust = customers;
+    let latestProv = providers;
+    let latestTypes = serviceTypes;
+
+    try {
+      const [cRes, pRes, tRes] = await Promise.all([
+        api.get('/customers'),
+        api.get('/providers'),
+        api.get('/service-types'),
+      ]);
+      if (cRes.success && cRes.data?.length) latestCust = cRes.data;
+      if (pRes.success && pRes.data?.length) latestProv = pRes.data;
+      if (tRes.success && tRes.data?.length) latestTypes = tRes.data;
+    } catch (e) {
+      console.error("Error loading master options for import:", e);
+    }
+
+    const defaultStId = latestTypes[0]?.id || 1;
+    const defaultCustId = latestCust.find((c) => c.customer_name.toLowerCase().includes('alfa'))?.id || latestCust[0]?.id || 1;
 
     let successCount = 0;
     let failCount = 0;
@@ -458,8 +476,25 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       const amountVal = parseFloat(String(row['Biaya FO Bulanan (IDR)'] || row['amount'] || '7500000').replace(/[^0-9.]/g, '')) || 7500000;
       const dueDayVal = parseInt(String(row['Tgl Jatuh Tempo (1-31)'] || row['due_day'] || '25').replace(/[^0-9]/g, '')) || 25;
 
-      let providerObj = providers.find((p) => p.provider_name.toLowerCase().includes(providerNameInput.toLowerCase()));
-      const providerId = providerObj ? providerObj.id : (providers[0]?.id || 1);
+      let providerObj = latestProv.find((p) => p.provider_name.toLowerCase().includes(providerNameInput.toLowerCase()));
+      let providerId = providerObj ? providerObj.id : (latestProv[0]?.id || 1);
+
+      // Auto-create provider if not found in DB
+      if (!providerObj && providerNameInput) {
+        try {
+          const newProvRes = await api.post('/providers', {
+            provider_code: `PROV-${Date.now()}-${i}`,
+            provider_name: providerNameInput,
+            status: 'ACTIVE',
+          });
+          if (newProvRes.success && newProvRes.data?.id) {
+            providerId = newProvRes.data.id;
+            latestProv.push(newProvRes.data);
+          }
+        } catch (e) {
+          console.warn("Could not auto-create provider, using fallback:", e);
+        }
+      }
 
       const payload = {
         service_name: serviceName,
@@ -470,7 +505,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         site_id: siteId,
         site_name: dcName,
         location: location,
-        contract_number: `CTR-IMP-${Date.now()}`,
+        contract_number: `CTR-IMP-${Date.now()}-${i}`,
         billing_cycle: 'MONTHLY',
         due_day: dueDayVal,
         amount: amountVal,
@@ -495,7 +530,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     setParsedImportRows([]);
     setImportFileName('');
     alert(`Bulk Import Selesai!\n✅ ${successCount} Layanan & Jadwal Tagihan Berhasil Ditambahkan.\n❌ ${failCount} Gagal.`);
-    fetchServices(page, limit);
+    fetchServices(1, limit);
   };
 
   const formatIDR = (val) => {
@@ -559,6 +594,21 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     }
   }
 
+  // Dynamic category counts calculation
+  const allCount = services.length;
+  const internetCount = services.filter((s) => 
+    [1, 2, 3, 4].includes(s.service_type_id) || 
+    ['FO-GSM', 'DUAL-GSM', 'Fiber Optic Dedicated', 'VSAT Satellite'].includes(s.service_type?.name)
+  ).length;
+  const hostingCount = services.filter((s) => 
+    [5, 6].includes(s.service_type_id) || 
+    ['Cloud VPS & Hosting', 'Data Center Co-location'].includes(s.service_type?.name)
+  ).length;
+  const softwareCount = services.filter((s) => 
+    [7].includes(s.service_type_id) || 
+    ['Software SaaS License'].includes(s.service_type?.name)
+  ).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -592,13 +642,13 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         </div>
       </div>
 
-      {/* Category Tabs Bar */}
+      {/* Category Tabs Bar - DYNAMIC COUNTS */}
       <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1">
         {[
-          { key: 'ALL', label: 'Semua Layanan', icon: Layers, count: '600+' },
-          { key: 'INTERNET', label: 'Tagihan Internet & FO Toko', icon: Globe, count: '601' },
-          { key: 'HOSTING', label: 'Tagihan Hosting & Cloud', icon: Cloud, count: '4' },
-          { key: 'SOFTWARE', label: 'Tagihan Software & SaaS', icon: Laptop, count: '3' },
+          { key: 'ALL', label: 'Semua Layanan', icon: Layers, count: total > 0 ? (categoryFilter === 'ALL' ? total : allCount) : 0 },
+          { key: 'INTERNET', label: 'Tagihan Internet & FO Toko', icon: Globe, count: categoryFilter === 'INTERNET' ? total : internetCount },
+          { key: 'HOSTING', label: 'Tagihan Hosting & Cloud', icon: Cloud, count: categoryFilter === 'HOSTING' ? total : hostingCount },
+          { key: 'SOFTWARE', label: 'Tagihan Software & SaaS', icon: Laptop, count: categoryFilter === 'SOFTWARE' ? total : softwareCount },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
