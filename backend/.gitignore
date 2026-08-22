@@ -1,0 +1,5 @@
+.env
+.env.local
+fspms-api
+*.exe
+*.log

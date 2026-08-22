@@ -1,0 +1,461 @@
+{
+	"info": {
+		"_postman_id": "a5e8f192-f089-42bc-9d04-f89a9f243012",
+		"name": "Finance Service & Payment Monitoring System (FSPMS) API",
+		"description": "Complete Postman collection for testing all FSPMS Backend API endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth & User Management",
+			"item": [
+				{
+					"name": "Login Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.data && jsonData.data.token) {",
+									"    pm.environment.set('token', jsonData.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "profile"]
+						}
+					}
+				},
+				{
+					"name": "List Users (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users"]
+						}
+					}
+				},
+				{
+					"name": "Create User / Staff (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"dina_finance\",\n  \"email\": \"dina@fspms.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"Dina Finance Staff\",\n  \"role_id\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users"]
+						}
+					}
+				},
+				{
+					"name": "List Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/roles",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "roles"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Dashboard",
+			"item": [
+				{
+					"name": "Get Dashboard Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/dashboard/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "dashboard", "summary"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Customers",
+			"item": [
+				{
+					"name": "List Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers"]
+						}
+					}
+				},
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_code\": \"CUST-001\",\n  \"customer_name\": \"PT Telekomunikasi Indonesia\",\n  \"contact\": \"08123456789\",\n  \"status\": \"ACTIVE\",\n  \"notes\": \"Main enterprise client\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Providers",
+			"item": [
+				{
+					"name": "List Providers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/providers?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "providers"]
+						}
+					}
+				},
+				{
+					"name": "Create Provider",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"provider_code\": \"PROV-001\",\n  \"provider_name\": \"Biznet Networks\",\n  \"contact\": \"Budi Santoso\",\n  \"email\": \"billing@biznet.com\",\n  \"phone\": \"021-57998888\",\n  \"address\": \"Jakarta Central\",\n  \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/providers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "providers"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Service Types",
+			"item": [
+				{
+					"name": "List Service Types",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/service-types",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "service-types"]
+						}
+					}
+				},
+				{
+					"name": "Create Service Type (Fiber Optic)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Fiber Optic\",\n  \"status\": \"ACTIVE\",\n  \"attribute_schema\": [\n    {\"name\": \"bandwidth\", \"type\": \"string\", \"required\": true, \"label\": \"Bandwidth Capacity\"},\n    {\"name\": \"circuit_id\", \"type\": \"string\", \"required\": true, \"label\": \"Circuit ID\"}\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/service-types",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "service-types"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Services",
+			"item": [
+				{
+					"name": "List Services",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/services?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services"]
+						}
+					}
+				},
+				{
+					"name": "Create Service",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"service_type_id\": 1,\n  \"customer_id\": 1,\n  \"provider_id\": 1,\n  \"service_name\": \"Dedicated FO 100Mbps - Headquarters\",\n  \"cid\": \"CID-998811\",\n  \"site_id\": \"SITE-JKT-01\",\n  \"site_name\": \"HQ Menara BCA\",\n  \"location\": \"Jl. MH Thamrin No. 1, Jakarta\",\n  \"contract_number\": \"CTR/2026/08/001\",\n  \"billing_cycle\": \"MONTHLY\",\n  \"due_day\": 25,\n  \"amount\": 15000000.00,\n  \"start_date\": \"2026-08-01T00:00:00Z\",\n  \"pic\": \"Dina Finance\",\n  \"status\": \"ACTIVE\",\n  \"attributes\": {\n    \"bandwidth\": \"100Mbps\",\n    \"circuit_id\": \"CKT-BZN-7721\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/services",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "services"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Payment Schedules",
+			"item": [
+				{
+					"name": "List Payment Schedules (All)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/payment-schedules?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "payment-schedules"]
+						}
+					}
+				},
+				{
+					"name": "Mark as Paid",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"schedule_id\": \"<INSERT_SCHEDULE_UUID_HERE>\",\n  \"payment_date\": \"2026-08-22\",\n  \"payment_amount\": 15000000.00,\n  \"payment_reference\": \"TRX-BCA-88991122\",\n  \"payment_method\": \"Bank Transfer\",\n  \"notes\": \"Full payment for August 2026\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/payment-schedules/mark-as-paid",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "payment-schedules", "mark-as-paid"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Reports",
+			"item": [
+				{
+					"name": "Monthly Payment Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/reports/monthly-summary?period=2026-08",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "reports", "monthly-summary"]
+						}
+					}
+				},
+				{
+					"name": "Provider Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/reports/provider-summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "reports", "provider-summary"]
+						}
+					}
+				},
+				{
+					"name": "Overdue Aging Report",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/reports/overdue-aging",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "reports", "overdue-aging"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Audit Logs",
+			"item": [
+				{
+					"name": "List Audit Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/audit-logs?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "audit-logs"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

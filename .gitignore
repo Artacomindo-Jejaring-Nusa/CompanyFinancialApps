@@ -1,0 +1,37 @@
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Build outputs & binaries
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+fspms-api
+backend/fspms-api
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+.agents
+.claude
+agent
+skills-lock.json
+
+fo_export_20260822_181429.xlsx
+PRD_Finance_Service_Payment_Monitoring.docx
+PRD_Finance_Service_Payment_Monitoring.md
