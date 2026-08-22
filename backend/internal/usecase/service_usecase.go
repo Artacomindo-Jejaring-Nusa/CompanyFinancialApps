@@ -123,8 +123,8 @@ func (u *serviceUsecase) generateInitialSchedules(ctx context.Context, service *
 	now := time.Now()
 	var schedules []domain.PaymentSchedule
 
-	// Generate for 3 periods ahead
-	for i := 0; i < 3; i++ {
+	// Generate for current period only
+	for i := 0; i < 1; i++ {
 		targetMonth := now.AddDate(0, i, 0)
 		periodStr := targetMonth.Format("2006-01")
 
