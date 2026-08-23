@@ -123,46 +123,51 @@ func (u *serviceUsecase) generateInitialSchedules(ctx context.Context, service *
 	now := time.Now()
 	var schedules []domain.PaymentSchedule
 
-	// Generate for current period only
-	for i := 0; i < 1; i++ {
-		targetMonth := now.AddDate(0, i, 0)
-		periodStr := targetMonth.Format("2006-01")
+	var dueDate time.Time
+	var periodStr string
 
-		// Calculate Due Date based on due_day and target month
+	if !service.StartDate.IsZero() {
+		dueDate = service.StartDate
+		periodStr = service.StartDate.Format("2006-01")
+	} else {
+		targetMonth := now
+		periodStr = targetMonth.Format("2006-01")
+
 		year := targetMonth.Year()
 		month := targetMonth.Month()
 
-		// Days in month calculation
 		lastDayOfMonth := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
 		actualDueDay := service.DueDay
+		if actualDueDay <= 0 {
+			actualDueDay = 25
+		}
 		if actualDueDay > lastDayOfMonth {
 			actualDueDay = lastDayOfMonth
 		}
 
-		dueDate := time.Date(year, month, actualDueDay, 0, 0, 0, 0, time.Local)
-
-		// Set initial status
-		status := "UPCOMING"
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		if dueDate.Before(today) {
-			status = "OVERDUE"
-		} else if dueDate.Equal(today) {
-			status = "DUE"
-		}
-
-		schedule := domain.PaymentSchedule{
-			ID:              uuid.New(),
-			ServiceID:       service.ID,
-			Period:          periodStr,
-			DueDate:         dueDate,
-			Amount:          service.Amount,
-			RemainingAmount: service.Amount,
-			Status:          status,
-			Notes:           fmt.Sprintf("Auto-generated schedule for period %s", periodStr),
-		}
-
-		schedules = append(schedules, schedule)
+		dueDate = time.Date(year, month, actualDueDay, 0, 0, 0, 0, time.Local)
 	}
 
+	status := "UPCOMING"
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dueDayOnly := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, now.Location())
+	if dueDayOnly.Before(today) {
+		status = "OVERDUE"
+	} else if dueDayOnly.Equal(today) {
+		status = "DUE"
+	}
+
+	schedule := domain.PaymentSchedule{
+		ID:              uuid.New(),
+		ServiceID:       service.ID,
+		Period:          periodStr,
+		DueDate:         dueDate,
+		Amount:          service.Amount,
+		RemainingAmount: service.Amount,
+		Status:          status,
+		Notes:           fmt.Sprintf("Schedule for period %s (%s)", periodStr, service.BillingCycle),
+	}
+
+	schedules = append(schedules, schedule)
 	return u.paymentScheduleRepo.BatchCreate(ctx, schedules)
 }

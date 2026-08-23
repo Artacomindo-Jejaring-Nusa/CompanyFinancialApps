@@ -38,11 +38,37 @@ import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
 import { exportToCSV, exportToExcel, downloadImportTemplate } from '../utils/exporter';
 
+// Category Helper Functions
+export const isInternetService = (s) => {
+  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
+  const id = Number(s?.service_type_id || s?.id || 0);
+  return name.includes('fiber') || name.includes('fo') || name.includes('vsat') || name.includes('gsm') || name.includes('internet') || id === 1 || id === 2;
+};
+
+export const isHostingService = (s) => {
+  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
+  const id = Number(s?.service_type_id || s?.id || 0);
+  return name.includes('cloud') || name.includes('vps') || name.includes('hosting') || name.includes('server') || name.includes('data center') || name.includes('co-location') || id === 3;
+};
+
+export const isSoftwareService = (s) => {
+  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
+  const id = Number(s?.service_type_id || s?.id || 0);
+  return name.includes('software') || name.includes('saas') || name.includes('license') || name.includes('lisensi') || id === 4;
+};
+
+export const getServiceCategory = (s) => {
+  if (isHostingService(s)) return 'HOSTING';
+  if (isSoftwareService(s)) return 'SOFTWARE';
+  return 'INTERNET';
+};
+
 export default function ServicesPage({ defaultCategory = 'ALL' }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearch = searchParams.get('search') || '';
 
   const [services, setServices] = useState([]);
+  const [allRawServices, setAllRawServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialSearch);
   const [categoryFilter, setCategoryFilter] = useState(defaultCategory);
@@ -69,6 +95,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
   // Create & Edit Modal
   const [modalOpen, setModalOpen] = useState(false);
+  const [formCategory, setFormCategory] = useState('INTERNET');
   const [editingItem, setEditingItem] = useState(null);
   const [selectedTypeSchema, setSelectedTypeSchema] = useState([]);
   const [formData, setFormData] = useState({
@@ -126,7 +153,10 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
       const res = await api.get(`/services?${queryParams}`);
       if (res.success) {
-        let fetchedData = res.data || [];
+        let rawData = res.data || [];
+        setAllRawServices(rawData);
+
+        let fetchedData = [...rawData];
 
         // Client-side text search filter across all fields
         if (search && search.trim().length > 0) {
@@ -140,6 +170,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             const provider = (s.provider?.provider_name || '').toLowerCase();
             const customer = (s.customer?.customer_name || '').toLowerCase();
             const contract = (s.contract_number || '').toLowerCase();
+            const ip = (s.attributes?.ip_address || '').toLowerCase();
 
             return (
               name.includes(sLower) ||
@@ -149,27 +180,19 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               dc.includes(sLower) ||
               provider.includes(sLower) ||
               customer.includes(sLower) ||
-              contract.includes(sLower)
+              contract.includes(sLower) ||
+              ip.includes(sLower)
             );
           });
         }
         
-        // Category filtering logic
+        // Accurate Category filtering logic using helper functions
         if (categoryFilter === 'INTERNET') {
-          fetchedData = fetchedData.filter((s) => 
-            [3, 4].includes(s.service_type_id) || 
-            ['Fiber Optic Dedicated', 'VSAT Satellite'].includes(s.service_type?.name)
-          );
+          fetchedData = fetchedData.filter(isInternetService);
         } else if (categoryFilter === 'HOSTING') {
-          fetchedData = fetchedData.filter((s) => 
-            [5, 6].includes(s.service_type_id) || 
-            ['Cloud VPS & Hosting', 'Data Center Co-location'].includes(s.service_type?.name)
-          );
+          fetchedData = fetchedData.filter(isHostingService);
         } else if (categoryFilter === 'SOFTWARE') {
-          fetchedData = fetchedData.filter((s) => 
-            [7].includes(s.service_type_id) || 
-            ['Software SaaS License'].includes(s.service_type?.name)
-          );
+          fetchedData = fetchedData.filter(isSoftwareService);
         }
 
         if (filterCycle) {
@@ -272,14 +295,38 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
   };
 
   const handleServiceTypeChange = (e) => {
-    const typeId = e.target.value;
-    const st = serviceTypes.find((item) => item.id == typeId);
-    setFormData({ ...formData, service_type_id: typeId, attributes: {} });
+    const typeId = parseInt(e.target.value);
+    const st = serviceTypes.find((item) => item.id === typeId);
+    const newCat = st ? getServiceCategory(st) : formCategory;
+    setFormCategory(newCat);
+    setFormData({
+      ...formData,
+      service_type_id: typeId,
+      billing_cycle: (newCat === 'HOSTING' || newCat === 'SOFTWARE') && formData.billing_cycle === 'MONTHLY' ? 'YEARLY' : formData.billing_cycle,
+    });
     if (st && st.attribute_schema) {
       setSelectedTypeSchema(st.attribute_schema);
     } else {
       setSelectedTypeSchema([]);
     }
+  };
+
+  const switchFormCategory = (targetCat) => {
+    setFormCategory(targetCat);
+    let matchingSt = null;
+    if (targetCat === 'HOSTING') {
+      matchingSt = serviceTypes.find(isHostingService);
+    } else if (targetCat === 'SOFTWARE') {
+      matchingSt = serviceTypes.find(isSoftwareService);
+    } else {
+      matchingSt = serviceTypes.find(isInternetService);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      service_type_id: matchingSt?.id || prev.service_type_id,
+      billing_cycle: targetCat === 'HOSTING' || targetCat === 'SOFTWARE' ? 'YEARLY' : 'MONTHLY',
+    }));
   };
 
   const handleAttributeChange = (name, value) => {
@@ -294,17 +341,29 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
   const openCreateModal = () => {
     setEditingItem(null);
+    const targetCategory = categoryFilter === 'ALL' ? 'INTERNET' : categoryFilter;
+    setFormCategory(targetCategory);
+
+    let defaultSt = null;
+    if (targetCategory === 'HOSTING') {
+      defaultSt = serviceTypes.find(isHostingService);
+    } else if (targetCategory === 'SOFTWARE') {
+      defaultSt = serviceTypes.find(isSoftwareService);
+    } else {
+      defaultSt = serviceTypes.find(isInternetService);
+    }
+
     setFormData({
       service_name: '',
-      service_type_id: '',
-      customer_id: '',
-      provider_id: '',
+      service_type_id: defaultSt?.id || serviceTypes[0]?.id || '',
+      customer_id: customers[0]?.id || '',
+      provider_id: providers[0]?.id || '',
       cid: '',
       site_id: '',
-      site_name: '',
+      site_name: targetCategory === 'HOSTING' ? 'Jakarta Cyber DC' : (targetCategory === 'INTERNET' ? 'DC Balaraja' : ''),
       location: '',
       contract_number: '',
-      billing_cycle: 'MONTHLY',
+      billing_cycle: targetCategory === 'HOSTING' || targetCategory === 'SOFTWARE' ? 'YEARLY' : 'MONTHLY',
       due_day: 25,
       amount: '',
       start_date: new Date().toISOString().split('T')[0],
@@ -319,6 +378,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
   const openEditModal = (item) => {
     setEditingItem(item);
+    const cat = getServiceCategory(item);
+    setFormCategory(cat);
     setFormData({
       service_name: item.service_name || '',
       service_type_id: item.service_type_id || '',
@@ -329,7 +390,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       site_name: item.site_name || '',
       location: item.location || '',
       contract_number: item.contract_number || '',
-      billing_cycle: item.billing_cycle || 'MONTHLY',
+      billing_cycle: item.billing_cycle || (cat === 'HOSTING' || cat === 'SOFTWARE' ? 'YEARLY' : 'MONTHLY'),
       due_day: item.due_day || 25,
       amount: item.amount || '',
       start_date: item.start_date ? item.start_date.split('T')[0] : new Date().toISOString().split('T')[0],
@@ -352,14 +413,33 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     e.preventDefault();
     setSubmitting(true);
     try {
+      // Calculate due day from start date if needed
+      let calculatedDueDay = parseInt(formData.due_day);
+      if (formData.start_date && !isNaN(new Date(formData.start_date).getDate())) {
+        calculatedDueDay = parseInt(formData.due_day) || new Date(formData.start_date).getDate();
+      }
+
+      // Generate CID fallback for Hosting / Software if left blank
+      let effectiveCID = formData.cid ? formData.cid.trim() : '';
+      if (!effectiveCID) {
+        if (formCategory === 'HOSTING') {
+          effectiveCID = formData.attributes?.ip_address ? `HOST-${formData.attributes.ip_address}` : `HOST-${Date.now()}`;
+        } else if (formCategory === 'SOFTWARE') {
+          effectiveCID = formData.contract_number ? `SW-${formData.contract_number}` : `SW-${Date.now()}`;
+        } else {
+          effectiveCID = `CID-${Date.now()}`;
+        }
+      }
+
       const payload = {
         ...formData,
+        cid: effectiveCID,
         service_type_id: parseInt(formData.service_type_id),
         customer_id: parseInt(formData.customer_id),
         provider_id: parseInt(formData.provider_id),
-        due_day: parseInt(formData.due_day),
-        amount: parseFloat(formData.amount),
-        start_date: new Date(formData.start_date).toISOString(),
+        due_day: calculatedDueDay || 25,
+        amount: parseFloat(formData.amount) || 0,
+        start_date: new Date(formData.start_date || new Date()).toISOString(),
       };
 
       if (editingItem) {
@@ -594,20 +674,12 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     }
   }
 
-  // Dynamic category counts calculation
-  const allCount = services.length;
-  const internetCount = services.filter((s) => 
-    [1, 2, 3, 4].includes(s.service_type_id) || 
-    ['FO-GSM', 'DUAL-GSM', 'Fiber Optic Dedicated', 'VSAT Satellite'].includes(s.service_type?.name)
-  ).length;
-  const hostingCount = services.filter((s) => 
-    [5, 6].includes(s.service_type_id) || 
-    ['Cloud VPS & Hosting', 'Data Center Co-location'].includes(s.service_type?.name)
-  ).length;
-  const softwareCount = services.filter((s) => 
-    [7].includes(s.service_type_id) || 
-    ['Software SaaS License'].includes(s.service_type?.name)
-  ).length;
+  // Dynamic category counts calculation from complete allRawServices dataset
+  const countSource = allRawServices.length > 0 ? allRawServices : services;
+  const allCount = countSource.length;
+  const internetCount = countSource.filter(isInternetService).length;
+  const hostingCount = countSource.filter(isHostingService).length;
+  const softwareCount = countSource.filter(isSoftwareService).length;
 
   return (
     <div className="space-y-6">
@@ -642,13 +714,13 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         </div>
       </div>
 
-      {/* Category Tabs Bar - DYNAMIC COUNTS */}
+      {/* Category Tabs Bar - DYNAMIC ACCURATE COUNTS */}
       <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1">
         {[
-          { key: 'ALL', label: 'Semua Layanan', icon: Layers, count: total > 0 ? (categoryFilter === 'ALL' ? total : allCount) : 0 },
-          { key: 'INTERNET', label: 'Tagihan Internet & FO Toko', icon: Globe, count: categoryFilter === 'INTERNET' ? total : internetCount },
-          { key: 'HOSTING', label: 'Tagihan Hosting & Cloud', icon: Cloud, count: categoryFilter === 'HOSTING' ? total : hostingCount },
-          { key: 'SOFTWARE', label: 'Tagihan Software & SaaS', icon: Laptop, count: categoryFilter === 'SOFTWARE' ? total : softwareCount },
+          { key: 'ALL', label: 'Semua Layanan', icon: Layers, count: allCount },
+          { key: 'INTERNET', label: 'Tagihan Internet & FO Toko', icon: Globe, count: internetCount },
+          { key: 'HOSTING', label: 'Tagihan Hosting & Cloud', icon: Cloud, count: hostingCount },
+          { key: 'SOFTWARE', label: 'Tagihan Software & SaaS', icon: Laptop, count: softwareCount },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -1345,160 +1417,473 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         </div>
       )}
 
-      {/* 1. Add / Edit Service Modal (CREATE & UPDATE) */}
+      {/* 1. Dynamic Category Add / Edit Service Modal (CREATE & UPDATE) */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-xl my-8">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-display text-headline-md font-bold text-slate-900">
-                {editingItem ? `Edit Service: ${editingItem.service_name}` : 'Register New Service'}
-              </h3>
+              <div>
+                <h3 className="font-display text-headline-md font-bold text-slate-900">
+                  {editingItem ? `Edit Layanan: ${editingItem.service_name}` : 'Pendaftaran Layanan Baru'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Form input disesuaikan otomatis dengan kategori layanan yang dipilih.
+                </p>
+              </div>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700">
                 <X size={20} />
               </button>
             </div>
 
+            {/* Category Selector Tabs inside Modal */}
+            <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => switchFormCategory('INTERNET')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
+                  formCategory === 'INTERNET'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Globe size={14} />
+                <span>Internet & FO Toko</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchFormCategory('HOSTING')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
+                  formCategory === 'HOSTING'
+                    ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Cloud size={14} />
+                <span>Hosting & Server</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchFormCategory('SOFTWARE')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
+                  formCategory === 'SOFTWARE'
+                    ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Laptop size={14} />
+                <span>Software & SaaS</span>
+              </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="font-semibold text-slate-800">Register Name / Nama Toko Alfa *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. ALFAMART BENDUNGAN HILIR / ALFAMART ALAM SUTERA"
-                    value={formData.service_name}
-                    onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-blue-600 font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-800">Service Type & Category *</label>
-                  <select
-                    required
-                    value={formData.service_type_id}
-                    onChange={handleServiceTypeChange}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                  >
-                    <option value="">Select Service Type...</option>
-                    {serviceTypes.map((st) => (
-                      <option key={st.id} value={st.id}>{st.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-800">Provider FO *</label>
-                  <select
-                    required
-                    value={formData.provider_id}
-                    onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                  >
-                    <option value="">Select Provider...</option>
-                    {providers.map((p) => (
-                      <option key={p.id} value={p.id}>{p.provider_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-800">Customer Entity *</label>
-                  <select
-                    required
-                    value={formData.customer_id}
-                    onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                  >
-                    <option value="">Select Customer...</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>{c.customer_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-800">CID (Circuit ID) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 4366517600078840"
-                    value={formData.cid}
-                    onChange={(e) => setFormData({ ...formData, cid: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-800">Site ID Toko & Distribution Center (DC)</label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
+              {/* =================================================== */}
+              {/* CATEGORY 1: INTERNET & FO TOKO (ALFAMART / DC / ISP) */}
+              {/* =================================================== */}
+              {formCategory === 'INTERNET' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="font-semibold text-slate-800">Nama Toko / Outlet / Layanan *</label>
                     <input
                       type="text"
-                      placeholder="Site ID (e.g. 1K72)"
-                      value={formData.site_id}
-                      onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono"
-                    />
-                    <input
-                      type="text"
-                      placeholder="DC (e.g. DC Balaraja)"
-                      value={formData.site_name}
-                      onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                      required
+                      placeholder="e.g. ALFAMART BENDUNGAN HILIR / ALFAMART ALAM SUTERA"
+                      value={formData.service_name}
+                      onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-blue-600 font-semibold"
                     />
                   </div>
-                </div>
 
-                <div className="sm:col-span-2">
-                  <label className="font-semibold text-slate-800">Lokasi / Alamat Lengkap Toko</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Jl. Bendungan Hilir No. 45, Jakarta Pusat"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
-                  />
-                </div>
+                  <div>
+                    <label className="font-semibold text-slate-800">Tipe Layanan FO *</label>
+                    <select
+                      required
+                      value={formData.service_type_id}
+                      onChange={handleServiceTypeChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Tipe FO...</option>
+                      {serviceTypes.filter(isInternetService).map((st) => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                      {serviceTypes.filter((st) => !isInternetService(st)).map((st) => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="font-semibold text-slate-800">Biaya FO Bulanan (IDR) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="7500000"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-600"
-                  />
-                </div>
+                  <div>
+                    <label className="font-semibold text-slate-800">Provider FO / ISP *</label>
+                    <select
+                      required
+                      value={formData.provider_id}
+                      onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Provider...</option>
+                      {providers.map((p) => (
+                        <option key={p.id} value={p.id}>{p.provider_name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="font-semibold text-slate-800">Billing Cycle & Due Day *</label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div>
+                    <label className="font-semibold text-slate-800">Customer Entity *</label>
+                    <select
+                      required
+                      value={formData.customer_id}
+                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Customer...</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id}>{c.customer_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Circuit ID (CID) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 4366517600078840"
+                      value={formData.cid}
+                      onChange={(e) => setFormData({ ...formData, cid: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Site ID Toko & Distribution Center (DC)</label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <input
+                        type="text"
+                        placeholder="Site ID (e.g. 1K72)"
+                        value={formData.site_id}
+                        onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="DC (e.g. DC Balaraja)"
+                        value={formData.site_name}
+                        onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Lokasi / Alamat Toko</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jl. Bendungan Hilir No. 45, Jakarta Pusat"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Biaya FO Bulanan (IDR) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="7500000"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Siklus & Tgl Jatuh Tempo Rutin *</label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <select
+                        value={formData.billing_cycle}
+                        onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                      >
+                        <option value="MONTHLY">MONTHLY (Bulanan)</option>
+                        <option value="QUARTERLY">QUARTERLY (Triwulan)</option>
+                        <option value="YEARLY">YEARLY (Tahunan)</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        required
+                        placeholder="Tgl (1-31)"
+                        value={formData.due_day}
+                        onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* =================================================== */}
+              {/* CATEGORY 2: HOSTING & CLOUD INFRASTRUCTURE          */}
+              {/* =================================================== */}
+              {formCategory === 'HOSTING' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="font-semibold text-slate-800">Nama Server / Instance / Domain *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Hosting Web Utama - artacomindojejaringnusa.com / VPS DB Production"
+                      value={formData.service_name}
+                      onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-purple-600 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Hosting / Cloud Provider *</label>
+                    <select
+                      required
+                      value={formData.provider_id}
+                      onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Hosting Provider...</option>
+                      {providers.map((p) => (
+                        <option key={p.id} value={p.id}>{p.provider_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Customer Entity *</label>
+                    <select
+                      required
+                      value={formData.customer_id}
+                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Customer...</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id}>{c.customer_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Tipe Infrastruktur *</label>
+                    <select
+                      required
+                      value={formData.service_type_id}
+                      onChange={handleServiceTypeChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Tipe Server...</option>
+                      {serviceTypes.filter(isHostingService).map((st) => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                      {serviceTypes.filter((st) => !isHostingService(st)).map((st) => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">IP Address / Hostname Server</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 103.150.93.10 / cpanel.artacomindo.com"
+                      value={formData.attributes?.ip_address || ''}
+                      onChange={(e) => handleAttributeChange('ip_address', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Data Center / Region Server</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jakarta Cyber DC / Singapore (ap-southeast-1)"
+                      value={formData.site_name}
+                      onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Spesifikasi Server (vCPU / RAM / Disk)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 4 vCPU, 8GB RAM, 100GB NVMe SSD"
+                      value={formData.attributes?.ram_core || ''}
+                      onChange={(e) => handleAttributeChange('ram_core', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Siklus Periode Tagihan Server *</label>
                     <select
                       value={formData.billing_cycle}
                       onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
                     >
-                      <option value="MONTHLY">MONTHLY</option>
-                      <option value="QUARTERLY">QUARTERLY</option>
-                      <option value="YEARLY">YEARLY</option>
+                      <option value="YEARLY">YEARLY (Tagihan Per 1 Tahun)</option>
+                      <option value="MONTHLY">MONTHLY (Tagihan Per Bulan)</option>
+                      <option value="QUARTERLY">QUARTERLY (Tagihan Per 3 Bulan)</option>
+                      <option value="SEMI_ANNUAL">SEMI_ANNUAL (Tagihan Per 6 Bulan)</option>
+                      <option value="2_YEARS">2 YEARS (Tagihan Per 2 Tahun)</option>
+                      <option value="3_YEARS">3 YEARS (Tagihan Per 3 Tahun)</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Tanggal Jatuh Tempo / Renewal Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value, due_day: new Date(e.target.value).getDate() || 25 })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-semibold text-xs"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-semibold text-slate-800">Biaya Server Sesuai Siklus Tagihan (IDR) *</label>
                     <input
                       type="number"
-                      min="1"
-                      max="31"
+                      step="0.01"
                       required
-                      placeholder="Due Day (1-31)"
-                      value={formData.due_day}
-                      onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                      placeholder="e.g. 960000 (untuk tagihan tahunan)"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-purple-700 text-sm"
                     />
                   </div>
                 </div>
-              </div>
+              )}
 
+              {/* =================================================== */}
+              {/* CATEGORY 3: SOFTWARE & SAAS LICENSES                */}
+              {/* =================================================== */}
+              {formCategory === 'SOFTWARE' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="font-semibold text-slate-800">Nama Software / Layanan SaaS *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Google Workspace Business Standard / Microsoft 365 Business / Zoom Pro"
+                      value={formData.service_name}
+                      onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-emerald-600 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Vendor / Provider Software *</label>
+                    <select
+                      required
+                      value={formData.provider_id}
+                      onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Vendor...</option>
+                      {providers.map((p) => (
+                        <option key={p.id} value={p.id}>{p.provider_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Customer Entity *</label>
+                    <select
+                      required
+                      value={formData.customer_id}
+                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    >
+                      <option value="">Pilih Customer...</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id}>{c.customer_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Jumlah Akun / Lisensi (User Seats)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 50 Seats / Lisensi"
+                      value={formData.attributes?.user_seats || ''}
+                      onChange={(e) => handleAttributeChange('user_seats', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Admin PIC / Email PIC</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. admin-it@artacomindo.com"
+                      value={formData.pic}
+                      onChange={(e) => setFormData({ ...formData, pic: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Nomor Lisensi / Subscription Contract ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. LIC-GWS-2026-001"
+                      value={formData.contract_number}
+                      onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Siklus Periode Tagihan Lisensi *</label>
+                    <select
+                      value={formData.billing_cycle}
+                      onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
+                    >
+                      <option value="YEARLY">YEARLY (Tagihan Per 1 Tahun)</option>
+                      <option value="MONTHLY">MONTHLY (Tagihan Per Bulan)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-800">Tanggal Jatuh Tempo / Renewal Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value, due_day: new Date(e.target.value).getDate() || 25 })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-semibold text-xs"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-semibold text-slate-800">Biaya Lisensi Sesuai Siklus (IDR) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="e.g. 15000000 (untuk tagihan tahunan)"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-emerald-700 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Form Action Buttons */}
               <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -1512,7 +1897,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                   disabled={submitting}
                   className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
                 >
-                  {submitting ? 'Saving...' : (editingItem ? 'Update Service' : 'Create & Generate Schedules')}
+                  {submitting ? 'Saving...' : (editingItem ? 'Update Layanan' : 'Simpan & Buat Jadwal')}
                 </button>
               </div>
             </form>
@@ -1537,32 +1922,97 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <div>
-                  <div className="text-slate-400 font-medium">CID (Circuit ID)</div>
-                  <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.cid}</div>
+              {/* Dynamic Detail based on category */}
+              {isHostingService(detailItem) ? (
+                <div className="grid grid-cols-2 gap-3 bg-purple-50/50 p-3 rounded-lg border border-purple-100">
+                  <div>
+                    <div className="text-slate-500 font-medium">Hosting Provider</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.provider?.provider_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Customer Entity</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.customer?.customer_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">IP Address / Server Host</div>
+                    <div className="font-mono font-bold text-purple-700 mt-0.5">{detailItem.attributes?.ip_address || 'Dynamic IP'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Data Center / Region</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.site_name || 'Jakarta Cyber DC'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Spesifikasi Server</div>
+                    <div className="font-medium text-slate-800 mt-0.5">{detailItem.attributes?.ram_core || 'Standard Instance'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Siklus & Due Date</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.billing_cycle} (Tgl {new Date(detailItem.start_date || new Date()).toLocaleDateString('id-ID')})</div>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-purple-100">
+                    <div className="text-slate-500 font-medium">Biaya Server</div>
+                    <div className="font-mono font-bold text-purple-700 text-sm mt-0.5">{formatIDR(detailItem.amount)} / {detailItem.billing_cycle}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-slate-400 font-medium">Site ID Toko</div>
-                  <div className="font-mono font-bold text-blue-700 mt-0.5">{detailItem.site_id}</div>
+              ) : isSoftwareService(detailItem) ? (
+                <div className="grid grid-cols-2 gap-3 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
+                  <div>
+                    <div className="text-slate-500 font-medium">Software Vendor</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.provider?.provider_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Customer Entity</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.customer?.customer_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Jumlah User Seats</div>
+                    <div className="font-bold text-emerald-700 mt-0.5">{detailItem.attributes?.user_seats || 'Enterprise License'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Admin PIC</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.pic || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Contract / License ID</div>
+                    <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.contract_number || detailItem.cid || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Siklus & Due Date</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.billing_cycle} (Tgl {new Date(detailItem.start_date || new Date()).toLocaleDateString('id-ID')})</div>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-emerald-100">
+                    <div className="text-slate-500 font-medium">Biaya Lisensi</div>
+                    <div className="font-mono font-bold text-emerald-700 text-sm mt-0.5">{formatIDR(detailItem.amount)} / {detailItem.billing_cycle}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-slate-400 font-medium">Distribution Center (DC)</div>
-                  <div className="font-bold text-slate-900 mt-0.5">{detailItem.attributes?.dc_name || detailItem.site_name || 'DC Main'}</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <div>
+                    <div className="text-slate-400 font-medium">CID (Circuit ID)</div>
+                    <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.cid}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 font-medium">Site ID Toko</div>
+                    <div className="font-mono font-bold text-blue-700 mt-0.5">{detailItem.site_id || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 font-medium">Distribution Center (DC)</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.attributes?.dc_name || detailItem.site_name || 'DC Main'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 font-medium">Provider FO</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.provider?.provider_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 font-medium">Biaya FO Bulanan</div>
+                    <div className="font-mono font-bold text-blue-600 mt-0.5">{formatIDR(detailItem.amount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 font-medium">Lokasi / Alamat</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.location || '-'}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-slate-400 font-medium">Provider FO</div>
-                  <div className="font-bold text-slate-900 mt-0.5">{detailItem.provider?.provider_name}</div>
-                </div>
-                <div>
-                  <div className="text-slate-400 font-medium">Biaya FO Bulanan</div>
-                  <div className="font-mono font-bold text-blue-600 mt-0.5">{formatIDR(detailItem.amount)}</div>
-                </div>
-                <div>
-                  <div className="text-slate-400 font-medium">Lokasi / Alamat</div>
-                  <div className="font-bold text-slate-900 mt-0.5">{detailItem.location}</div>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-200">
@@ -1587,7 +2037,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Apakah Anda yakin ingin mengarsip/menghapus sirkuit FO toko <strong className="text-slate-900">{deleteItem.service_name}</strong> (CID: <span className="font-mono">{deleteItem.cid}</span>)?
+              Apakah Anda yakin ingin mengarsip/menghapus sirkuit/layanan <strong className="text-slate-900">{deleteItem.service_name}</strong>?
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
