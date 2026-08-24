@@ -19,7 +19,9 @@ import {
   Moon,
   Info,
   X,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ArtacomLogo from '../components/ArtacomLogo';
@@ -40,12 +42,17 @@ export default function TVCalendarDisplayPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
   const [detailItem, setDetailItem] = useState(null);
+  const [dayModalItems, setDayModalItems] = useState(null); // When clicking "+X Tagihan Lainnya"
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Month navigation
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getMonth()); // 0-indexed
 
   const containerRef = useRef(null);
+
+  // Top Pinned Core Vendors
+  const PINNED_VENDOR_CODES = ['PROV-JIP', 'PROV-IFO', 'PROV-SAT', 'PROV-PAR', 'PROV-JED', 'PROV-BIZ', 'PROV-IND', 'PROV-AST'];
 
   // Live Digital Clock
   useEffect(() => {
@@ -90,7 +97,7 @@ export default function TVCalendarDisplayPage() {
     try {
       const [schedRes, provRes] = await Promise.all([
         api.get('/payment-schedules?limit=1000'),
-        api.get('/providers?limit=100'),
+        api.get('/providers?limit=200'),
       ]);
 
       if (schedRes.success) {
@@ -174,15 +181,14 @@ export default function TVCalendarDisplayPage() {
     'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
   ];
 
-  const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun, 1 = Mon ...
-  // Shift so Monday is index 0
+  const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
   const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
-  // Filter schedules for the active view month/year
   const targetPeriodPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
   
-  let monthSchedules = schedules.filter((s) => {
+  // Base schedules for this month
+  const rawMonthSchedules = schedules.filter((s) => {
     if (s.due_date) {
       const d = new Date(s.due_date);
       return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
@@ -190,13 +196,33 @@ export default function TVCalendarDisplayPage() {
     return s.period === targetPeriodPrefix;
   });
 
+  // Calculate SMART ACTIVE PROVIDERS for this month (Only providers with >= 1 invoice this month OR pinned)
+  const activeProviderIds = new Set(rawMonthSchedules.map((s) => s.service?.provider_id));
+  
+  const smartPillProviders = providers.filter((p) => 
+    activeProviderIds.has(p.id) || PINNED_VENDOR_CODES.includes(p.provider_code)
+  );
+
+  // Filtered schedules for calendar display
+  let monthSchedules = [...rawMonthSchedules];
+
   if (selectedVendorFilter) {
     monthSchedules = monthSchedules.filter((s) => String(s.service?.provider_id) === String(selectedVendorFilter));
   }
 
+  if (searchTerm && searchTerm.trim()) {
+    const sLower = searchTerm.trim().toLowerCase();
+    monthSchedules = monthSchedules.filter((item) => {
+      const sName = (item.service?.service_name || '').toLowerCase();
+      const pName = (item.service?.provider?.provider_name || '').toLowerCase();
+      const cid = (item.service?.cid || '').toLowerCase();
+      const notes = (item.notes || '').toLowerCase();
+      return sName.includes(sLower) || pName.includes(sLower) || cid.includes(sLower) || notes.includes(sLower);
+    });
+  }
+
   // Calculate statistics for top KPI cards
   const totalNominalBulanIni = monthSchedules.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const totalSisaBulanIni = monthSchedules.reduce((sum, item) => sum + (item.remaining_amount || (item.status === 'PAID' ? 0 : item.amount) || 0), 0);
   
   const dueTodayItems = monthSchedules.filter((item) => item.status === 'DUE_TODAY');
   const dueTodayNominal = dueTodayItems.reduce((sum, item) => sum + (item.remaining_amount || item.amount || 0), 0);
@@ -223,6 +249,14 @@ export default function TVCalendarDisplayPage() {
     if (schedulesByDay[dayNumber]) {
       schedulesByDay[dayNumber].push(item);
     }
+  });
+
+  // Sort each day items (OVERDUE first, then DUE_TODAY, then UPCOMING, then PAID)
+  Object.keys(schedulesByDay).forEach((day) => {
+    schedulesByDay[day].sort((a, b) => {
+      const order = { OVERDUE: 1, DUE_TODAY: 2, DUE_SOON: 3, UPCOMING: 4, PARTIALLY_PAID: 5, PAID: 6 };
+      return (order[a.status] || 9) - (order[b.status] || 9);
+    });
   });
 
   // Today marker
@@ -270,30 +304,28 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 1. TOP WALLBOARD HEADER & REALTIME CLOCK                 */}
       {/* ======================================================== */}
-      <header className={`px-6 py-3.5 border-b flex flex-col md:flex-row items-center justify-between gap-4 ${
+      <header className={`px-6 py-3 border-b flex flex-col md:flex-row items-center justify-between gap-4 ${
         darkMode ? 'bg-[#111827]/90 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-xs'
       }`}>
         {/* Company Brand & Screen Title */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <ArtacomLogo className="h-9 w-auto" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
-                  FINANCE WALLBOARD
-                </span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
-                  TV MONITOR
-                </span>
-              </div>
-              <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Jadwal Tagihan & Jatuh Tempo Pembayaran Vendor (JIP, iForte, Satkom, Parama, Jedi, dll)
-              </p>
+          <ArtacomLogo className="h-9 w-auto" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+                FINANCE WALLBOARD
+              </span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
+                TV MONITOR
+              </span>
             </div>
+            <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Jadwal Tagihan & Jatuh Tempo Pembayaran Seluruh Vendor ({providers.length} Vendor Terdaftar)
+            </p>
           </div>
         </div>
 
-        {/* Live Digital Clock & Live Sync Indicator */}
+        {/* Live Digital Clock & Controls */}
         <div className="flex items-center gap-5">
           <div className="text-right">
             <div className="font-mono text-xl md:text-2xl font-bold tracking-tight text-blue-400 drop-shadow-xs">
@@ -306,7 +338,6 @@ export default function TVCalendarDisplayPage() {
 
           <div className="h-8 w-px bg-slate-700/50 hidden sm:block"></div>
 
-          {/* Quick Action Controls (Back to App, Fullscreen, Dark/Light, Refresh) */}
           <div className="flex items-center gap-2">
             <div 
               title="Auto Sync Interval"
@@ -364,10 +395,10 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 2. HIGH-IMPACT KPI OVERVIEW BAR                          */}
       {/* ======================================================== */}
-      <section className="px-6 pt-4 pb-2">
+      <section className="px-6 pt-3 pb-1">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          {/* Card 1: Total Kewajiban */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+          {/* Total Tagihan */}
+          <div className={`p-3.5 rounded-xl border flex items-center justify-between shadow-xs ${
             darkMode ? 'bg-[#131b2e] border-slate-800/90' : 'bg-white border-slate-200'
           }`}>
             <div>
@@ -381,13 +412,13 @@ export default function TVCalendarDisplayPage() {
                 {monthSchedules.length} Tagihan Terjadwal
               </div>
             </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600'}`}>
-              <Receipt size={24} />
+            <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600'}`}>
+              <Receipt size={22} />
             </div>
           </div>
 
-          {/* Card 2: Jatuh Tempo Hari Ini */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+          {/* Due Today */}
+          <div className={`p-3.5 rounded-xl border flex items-center justify-between shadow-xs ${
             dueTodayItems.length > 0
               ? (darkMode ? 'bg-amber-950/40 border-amber-500/50 ring-1 ring-amber-500/30' : 'bg-amber-50 border-amber-300 ring-1 ring-amber-400')
               : (darkMode ? 'bg-[#131b2e] border-slate-800/90' : 'bg-white border-slate-200')
@@ -404,13 +435,13 @@ export default function TVCalendarDisplayPage() {
                 {dueTodayItems.length} Tagihan Wajib Dibayar
               </div>
             </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-600'}`}>
-              <Clock size={24} />
+            <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-600'}`}>
+              <Clock size={22} />
             </div>
           </div>
 
-          {/* Card 3: Overdue Lewat Tempo */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+          {/* Overdue */}
+          <div className={`p-3.5 rounded-xl border flex items-center justify-between shadow-xs ${
             overdueItems.length > 0
               ? (darkMode ? 'bg-rose-950/40 border-rose-500/50 ring-1 ring-rose-500/30' : 'bg-rose-50 border-rose-300 ring-1 ring-rose-400')
               : (darkMode ? 'bg-[#131b2e] border-slate-800/90' : 'bg-white border-slate-200')
@@ -427,13 +458,13 @@ export default function TVCalendarDisplayPage() {
                 {overdueItems.length} Tagihan Kritis
               </div>
             </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-rose-50 text-rose-600'}`}>
-              <AlertTriangle size={24} />
+            <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-rose-50 text-rose-600'}`}>
+              <AlertTriangle size={22} />
             </div>
           </div>
 
-          {/* Card 4: Lunas / Paid */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+          {/* Lunas / Paid */}
+          <div className={`p-3.5 rounded-xl border flex items-center justify-between shadow-xs ${
             darkMode ? 'bg-[#131b2e] border-slate-800/90' : 'bg-white border-slate-200'
           }`}>
             <div>
@@ -447,19 +478,19 @@ export default function TVCalendarDisplayPage() {
                 {paidItems.length} Tagihan Selesai
               </div>
             </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600'}`}>
-              <CheckCircle2 size={24} />
+            <div className={`p-2.5 rounded-xl ${darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600'}`}>
+              <CheckCircle2 size={22} />
             </div>
           </div>
         </div>
       </section>
 
       {/* ======================================================== */}
-      {/* 3. MONTH NAVIGATOR & VENDOR FILTER PILLS                 */}
+      {/* 3. SMART VENDOR FILTER & CONTROLS (HANDLES 60+ VENDORS)  */}
       {/* ======================================================== */}
-      <section className="px-6 py-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <section className="px-6 py-2 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
         {/* Month Switcher Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handlePrevMonth}
             className={`p-2 rounded-lg border font-bold text-xs transition-colors flex items-center gap-1 ${
@@ -498,21 +529,36 @@ export default function TVCalendarDisplayPage() {
           </button>
         </div>
 
-        {/* Vendor Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        {/* SMART VENDOR FILTER: Active Month Providers Fast Pills + Dropdown (Scales up to 60+ providers cleanly) */}
+        <div className="flex items-center gap-2 flex-1 justify-end overflow-x-auto pb-0.5 text-xs">
+          {/* Search Box on TV Wallboard */}
+          <div className="relative w-44 sm:w-52">
+            <Search className="absolute left-2.5 top-2 text-slate-400" size={13} />
+            <input
+              type="text"
+              placeholder="Cari link / vendor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full rounded-lg pl-7 pr-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 border ${
+                darkMode ? 'bg-slate-800/90 border-slate-700 text-slate-200 placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800'
+              }`}
+            />
+          </div>
+
           <button
             onClick={() => setSelectedVendorFilter('')}
-            className={`px-3 py-1 rounded-lg font-semibold transition-all whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap ${
               !selectedVendorFilter
                 ? 'bg-blue-600 text-white font-bold shadow-2xs'
                 : (darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200')
             }`}
           >
-            Semua Vendor ({monthSchedules.length})
+            Semua ({rawMonthSchedules.length})
           </button>
 
-          {providers.map((prov) => {
-            const count = monthSchedules.filter((s) => String(s.service?.provider_id) === String(prov.id)).length;
+          {/* Active & Pinned Vendor Pills */}
+          {smartPillProviders.map((prov) => {
+            const count = rawMonthSchedules.filter((s) => String(s.service?.provider_id) === String(prov.id)).length;
             const isSelected = String(selectedVendorFilter) === String(prov.id);
             const shortName = getShortVendorName(prov.provider_name);
 
@@ -520,7 +566,7 @@ export default function TVCalendarDisplayPage() {
               <button
                 key={prov.id}
                 onClick={() => setSelectedVendorFilter(isSelected ? '' : String(prov.id))}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   isSelected
                     ? 'bg-blue-600 text-white font-bold shadow-2xs ring-2 ring-blue-400/40'
                     : (darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200')
@@ -528,8 +574,8 @@ export default function TVCalendarDisplayPage() {
               >
                 <span>{shortName}</span>
                 {count > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                    isSelected ? 'bg-white/20 text-white' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-800')
+                  <span className={`px-1.5 py-0.1 rounded-full text-[10px] ${
+                    isSelected ? 'bg-white/20 text-white font-bold' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-800')
                   }`}>
                     {count}
                   </span>
@@ -537,6 +583,24 @@ export default function TVCalendarDisplayPage() {
               </button>
             );
           })}
+
+          {/* Full Dropdown for all other registered 60+ vendors */}
+          {providers.length > smartPillProviders.length && (
+            <select
+              value={selectedVendorFilter}
+              onChange={(e) => setSelectedVendorFilter(e.target.value)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border cursor-pointer ${
+                darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+              }`}
+            >
+              <option value="">Vendor Lainnya ({providers.length - smartPillProviders.length})...</option>
+              {providers
+                .filter((p) => !smartPillProviders.some((sp) => sp.id === p.id))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.provider_name}</option>
+                ))}
+            </select>
+          )}
         </div>
       </section>
 
@@ -585,6 +649,10 @@ export default function TVCalendarDisplayPage() {
               const hasOverdue = dayItems.some((s) => s.status === 'OVERDUE');
               const hasDueToday = dayItems.some((s) => s.status === 'DUE_TODAY');
 
+              // Show max 2 cards, and if >2, show clean "+X Tagihan Lainnya" chip
+              const visibleItems = dayItems.slice(0, 2);
+              const remainingCount = dayItems.length - 2;
+
               return (
                 <div
                   key={`day-${dayNum}`}
@@ -629,7 +697,7 @@ export default function TVCalendarDisplayPage() {
 
                   {/* Invoice Chips on this Date */}
                   <div className="space-y-1 overflow-y-auto max-h-[105px] pr-0.5 scrollbar-thin">
-                    {dayItems.map((item) => {
+                    {visibleItems.map((item) => {
                       const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
                       const colorClass = getStatusColorClass(item.status, darkMode);
 
@@ -652,6 +720,20 @@ export default function TVCalendarDisplayPage() {
                         </div>
                       );
                     })}
+
+                    {/* Clean "+ X Tagihan Lainnya" chip if multiple invoices exist */}
+                    {remainingCount > 0 && (
+                      <button
+                        onClick={() => setDayModalItems({ day: dayNum, items: dayItems })}
+                        className={`w-full py-1 px-1.5 rounded-md text-[10px] font-bold text-center border transition-colors ${
+                          darkMode 
+                            ? 'bg-blue-900/40 hover:bg-blue-800/60 border-blue-700/50 text-blue-300' 
+                            : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                        }`}
+                      >
+                        +{remainingCount} Tagihan Lainnya →
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -724,7 +806,75 @@ export default function TVCalendarDisplayPage() {
       </main>
 
       {/* ======================================================== */}
-      {/* 5. MODAL DETAIL INVOICE POPUP (WHEN CLICKED)             */}
+      {/* 5. MODAL LIST OF INVOICES FOR A DAY                      */}
+      {/* ======================================================== */}
+      {dayModalItems && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`border rounded-2xl w-full max-w-xl p-6 space-y-4 shadow-2xl ${
+            darkMode ? 'bg-[#111827] border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
+              <div>
+                <h3 className="font-bold text-base">
+                  Daftar Tagihan Jatuh Tempo Tanggal {dayModalItems.day} {monthNames[viewMonth]} {viewYear}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Total {dayModalItems.items.length} Invoice Tagihan
+                </p>
+              </div>
+              <button onClick={() => setDayModalItems(null)} className="text-slate-400 hover:text-slate-200">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {dayModalItems.items.map((item) => {
+                const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
+                const colorClass = getStatusColorClass(item.status, darkMode);
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setDayModalItems(null);
+                      setDetailItem(item);
+                    }}
+                    className={`p-3 rounded-xl border cursor-pointer hover:scale-[1.01] transition-transform ${colorClass}`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 size={14} />
+                        <span>{item.service?.provider?.provider_name}</span>
+                      </span>
+                      <span className="font-mono text-sm">
+                        {formatIDR(item.remaining_amount || item.amount)}
+                      </span>
+                    </div>
+                    <div className="text-xs mt-1">
+                      {item.service?.service_name} • <span className="font-mono">{item.service?.cid || item.service?.contract_number || '-'}</span>
+                    </div>
+                    <div className="text-[11px] opacity-75 mt-0.5">
+                      Customer: {item.service?.customer?.customer_name} • Status: {item.status}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-700/50">
+              <button
+                onClick={() => setDayModalItems(null)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 6. MODAL DETAIL INVOICE POPUP (SINGLE ITEM)              */}
       {/* ======================================================== */}
       {detailItem && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
