@@ -23,23 +23,23 @@ ON CONFLICT (id) DO UPDATE SET
   pic_contact = EXCLUDED.pic_contact;
 
 -- 3. Providers / Vendors (JIP, iForte, Satkom, Parama, Jedi, Biznet, Telkom, etc.)
-INSERT INTO providers (id, provider_code, provider_name, contact, status) VALUES
-(1, 'PROV-JIP', 'PT Jakarta Infrastruktur Propertindo (JIP)', 'Billing Support', 'ACTIVE'),
-(2, 'PROV-IFO', 'PT iForte Solusi Infotek (iForte)', 'Finance Support', 'ACTIVE'),
-(3, 'PROV-SAT', 'PT Satkomindo Mediatama (Satkom)', 'Account Rep', 'ACTIVE'),
-(4, 'PROV-PAR', 'PT Parama Data Unit (Parama)', 'Billing Rep', 'ACTIVE'),
-(5, 'PROV-JED', 'PT Jedi Global Teknologi (Jedi)', 'Support Rep', 'ACTIVE'),
-(6, 'PROV-BIZ', 'Biznet Networks', 'Enterprise Rep', 'ACTIVE'),
-(7, 'PROV-IND', 'Indihome / Telkom', 'Enterprise Rep', 'ACTIVE'),
-(8, 'PROV-AST', 'Astinet', 'Enterprise Rep', 'ACTIVE'),
-(9, 'PROV-OXY', 'Oxygen', 'Enterprise Rep', 'ACTIVE'),
-(10, 'PROV-MYR', 'MyRepublic', 'Enterprise Rep', 'ACTIVE'),
-(11, 'PROV-MOR', 'Moratelindo', 'Billing Rep', 'ACTIVE'),
-(12, 'PROV-LIN', 'Lintasarta', 'Enterprise Rep', 'ACTIVE'),
-(13, 'PROV-JAG', 'Jagoweb', 'Cloud Support', 'ACTIVE')
-ON CONFLICT (id) DO UPDATE SET 
+INSERT INTO providers (provider_code, provider_name, contact, status) VALUES
+('PROV-JIP', 'PT Jakarta Infrastruktur Propertindo (JIP)', 'Billing Support', 'ACTIVE'),
+('PROV-IFO', 'PT iForte Solusi Infotek (iForte)', 'Finance Support', 'ACTIVE'),
+('PROV-SAT', 'PT Satkomindo Mediatama (Satkom)', 'Account Rep', 'ACTIVE'),
+('PROV-PAR', 'PT Parama Data Unit (Parama)', 'Billing Rep', 'ACTIVE'),
+('PROV-JED', 'PT Jedi Global Teknologi (Jedi)', 'Support Rep', 'ACTIVE'),
+('PROV-BIZ', 'Biznet Networks', 'Enterprise Rep', 'ACTIVE'),
+('PROV-IND', 'Indihome / Telkom', 'Enterprise Rep', 'ACTIVE'),
+('PROV-AST', 'Astinet', 'Enterprise Rep', 'ACTIVE'),
+('PROV-OXY', 'Oxygen', 'Enterprise Rep', 'ACTIVE'),
+('PROV-MYR', 'MyRepublic', 'Enterprise Rep', 'ACTIVE'),
+('PROV-MOR', 'Moratelindo', 'Billing Rep', 'ACTIVE'),
+('PROV-LIN', 'Lintasarta', 'Enterprise Rep', 'ACTIVE'),
+('PROV-JAG', 'Jagoweb', 'Cloud Support', 'ACTIVE')
+ON CONFLICT (provider_code) DO UPDATE SET 
   provider_name = EXCLUDED.provider_name,
-  provider_code = EXCLUDED.provider_code;
+  status = EXCLUDED.status;
 
 -- Delete removed vendors if present
 DELETE FROM providers WHERE provider_code IN ('PROV-IOH', 'PROV-XL', 'PROV-AWS', 'PROV-GCP', 'PROV-MSF');
