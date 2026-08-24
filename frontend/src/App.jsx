@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PaymentMonitoringPage from './pages/PaymentMonitoringPage';
 import VendorInvoicesPage from './pages/VendorInvoicesPage';
+import TVCalendarDisplayPage from './pages/TVCalendarDisplayPage';
 import ServicesPage from './pages/ServicesPage';
 import MasterDataPage from './pages/MasterDataPage';
 import ReportsPage from './pages/ReportsPage';
@@ -33,6 +34,32 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+
+        {/* Standalone Fullscreen TV Wallboard Display Routes */}
+        <Route
+          path="/display"
+          element={
+            <ProtectedRoute>
+              <TVCalendarDisplayPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wallboard"
+          element={
+            <ProtectedRoute>
+              <TVCalendarDisplayPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tv-calendar"
+          element={
+            <ProtectedRoute>
+              <TVCalendarDisplayPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/"

@@ -14,7 +14,8 @@ import {
   Download,
   Filter,
   DollarSign,
-  Activity
+  Activity,
+  Tv
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CardSkeleton, ChartSkeleton, TableSkeleton, Skeleton } from '../components/Skeleton';
@@ -143,7 +144,17 @@ export default function DashboardPage() {
           <h1 className="font-display text-headline-lg text-on-surface font-bold">Executive Financial Dashboard</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">Real-time financial monitoring, obligation trends, and risk assessment analytics.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/display"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-2 bg-slate-900 text-white font-label-md text-label-md font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-2"
+            title="Buka TV Wallboard Monitoring Kalender di Tab Baru"
+          >
+            <Tv size={16} className="text-blue-400" />
+            <span>TV Wallboard</span>
+          </Link>
           <button
             onClick={() => window.print()}
             className="px-3.5 py-2 bg-surface-container border border-outline-variant/40 text-on-surface font-label-md text-label-md font-semibold rounded-lg hover:bg-surface-container-high transition-colors flex items-center gap-2"

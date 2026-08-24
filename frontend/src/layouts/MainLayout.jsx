@@ -27,11 +27,10 @@ import {
   Globe,
   Cloud,
   Laptop,
-  Store,
-  ArrowRight,
-  Loader2,
   Trash2,
-  Receipt
+  Receipt,
+  Tv,
+  Monitor
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -258,6 +257,7 @@ export default function MainLayout() {
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Tagihan Invoice Masuk', path: '/invoices', icon: Receipt },
+        { name: 'TV Wallboard Kalender', path: '/display', icon: Tv },
       ],
     },
     {
@@ -541,7 +541,19 @@ export default function MainLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Quick TV Wallboard Launch Button */}
+            <Link
+              to="/display"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+              title="Buka TV Display Kalender di Tab Baru"
+            >
+              <Tv size={14} className="text-blue-400" />
+              <span className="hidden sm:inline">TV Wallboard</span>
+            </Link>
+
             {/* Notification Bell Dropdown */}
             <div className="relative" ref={notificationRef}>
               <button 
