@@ -98,7 +98,13 @@ export default function PaymentMonitoringPage() {
         api.get('/customers?limit=100'),
         api.get('/service-types'),
       ]);
-      if (pRes.success) setProviders(pRes.data || []);
+      if (pRes.success) {
+        // Filter out unwanted providers if present
+        const cleaned = (pRes.data || []).filter(
+          (p) => !['PROV-IOH', 'PROV-XL', 'PROV-AWS', 'PROV-GCP', 'PROV-MSF'].includes(p.provider_code)
+        );
+        setProviders(cleaned);
+      }
       if (cRes.success) setCustomers(cRes.data || []);
       if (stRes.success) setServiceTypes(stRes.data || []);
     } catch (err) {
@@ -120,7 +126,7 @@ export default function PaymentMonitoringPage() {
         let list = res.data || [];
         setAllSchedules(list);
 
-        // Client-side text search across invoice, provider, service name, CID
+        // Client-side text search
         if (search && search.trim()) {
           const sLower = search.trim().toLowerCase();
           list = list.filter((item) => {
@@ -184,6 +190,19 @@ export default function PaymentMonitoringPage() {
     }).format(val || 0);
   };
 
+  const getShortVendorName = (name) => {
+    if (!name) return 'Vendor';
+    // Clean PT and extract clean acronym/short name
+    let clean = name.replace(/PT\.?\s*/i, '').trim();
+    if (clean.includes('(')) {
+      const match = clean.match(/\(([^)]+)\)/);
+      if (match) return match[1];
+    }
+    if (clean.toLowerCase().includes('indihome') || clean.toLowerCase().includes('telkom')) return 'Telkom';
+    if (clean.toLowerCase().includes('biznet')) return 'Biznet';
+    return clean.split(' ')[0];
+  };
+
   const handleExportReport = () => {
     if (!schedules.length) {
       alert('Tidak ada data tagihan untuk diexport');
@@ -191,7 +210,6 @@ export default function PaymentMonitoringPage() {
     }
 
     const exportRows = (allSchedules.length ? allSchedules : schedules).map((item) => {
-      // Parse vendor invoice info from notes or attributes
       const notes = item.notes || '';
       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
       const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
@@ -216,7 +234,7 @@ export default function PaymentMonitoringPage() {
 
     const activeProviderName = providers.find((p) => String(p.id) === String(providerFilter))?.provider_name;
     const filename = activeProviderName 
-      ? `Rekap_Invoice_${activeProviderName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentTab}`
+      ? `Rekap_Invoice_${getShortVendorName(activeProviderName)}_${currentTab}`
       : `Rekap_Invoice_Semua_Vendor_${currentTab}`;
 
     exportToExcel(exportRows, filename);
@@ -338,10 +356,10 @@ export default function PaymentMonitoringPage() {
       }
 
       const selectedProv = providers.find((p) => String(p.id) === String(invoiceForm.provider_id));
-      const provName = selectedProv?.provider_name || 'Vendor';
+      const provName = selectedProv ? getShortVendorName(selectedProv.provider_name) : 'Vendor';
 
       const invoiceServiceName = invoiceForm.service_name.trim() 
-        || `Tagihan Invoice ${provName} - ${invoiceForm.vendor_invoice_number || 'No Ref'}`;
+        || `Tagihan ${provName} - ${invoiceForm.vendor_invoice_number || 'Ref Baru'}`;
 
       let notesCombined = `No. Inv: ${invoiceForm.vendor_invoice_number || '-'}`;
       if (invoiceForm.faktur_pajak_number) notesCombined += ` | Faktur: ${invoiceForm.faktur_pajak_number}`;
@@ -408,7 +426,6 @@ export default function PaymentMonitoringPage() {
 
   // Calculate stats for current view
   const currentTotalAmount = (allSchedules.length ? allSchedules : schedules).reduce((sum, item) => sum + (item.remaining_amount || item.amount || 0), 0);
-  const currentOverdueCount = (allSchedules.length ? allSchedules : schedules).filter((item) => item.status === 'OVERDUE').length;
 
   return (
     <div className="space-y-6">
@@ -417,7 +434,7 @@ export default function PaymentMonitoringPage() {
         <div>
           <h1 className="font-display text-headline-lg text-on-surface font-bold">Single Inbox Payment Monitoring</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">
-            Monitoring jadwal jatuh tempo, histori transaksi, dan pencatatan invoice tagihan masuk dari semua vendor (JIP, iForte, Satkom, Parama, Jedi, dll).
+            Monitoring jadwal jatuh tempo pembayaran tagihan vendor (JIP, iForte, Satkom, Parama, Jedi, Biznet, dll).
           </p>
         </div>
 
@@ -435,7 +452,7 @@ export default function PaymentMonitoringPage() {
             className="px-4 py-2 bg-emerald-600 text-white font-semibold text-xs rounded-lg hover:bg-emerald-700 transition-colors shadow-xs flex items-center gap-2"
           >
             <FileSpreadsheet size={16} />
-            <span>Export Rekap ({providerFilter ? (activeVendor?.provider_name?.slice(0, 15) || 'Vendor') : 'Semua'})</span>
+            <span>Export Rekap ({providerFilter ? getShortVendorName(activeVendor?.provider_name) : 'Semua'})</span>
           </button>
 
           {selectedIds.length > 0 && (
@@ -444,18 +461,18 @@ export default function PaymentMonitoringPage() {
               className="px-4 py-2 bg-purple-600 text-white font-semibold text-xs rounded-lg hover:bg-purple-700 transition-colors shadow-xs flex items-center gap-2"
             >
               <CheckSquare size={16} />
-              <span>Bayar {selectedIds.length} Invoice Terpilih</span>
+              <span>Bayar {selectedIds.length} Invoice</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Quick Provider Selection Pills Bar */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-2xs space-y-2">
+      {/* Sleek Wrapped Provider Filter Bar */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs space-y-2">
         <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
           <div className="flex items-center gap-1.5">
             <Building2 size={15} className="text-blue-600" />
-            <span>Filter Cepat Vendor / Provider Invoice:</span>
+            <span>Filter Cepat Berdasarkan Vendor:</span>
           </div>
           {providerFilter && (
             <button
@@ -463,43 +480,49 @@ export default function PaymentMonitoringPage() {
               className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1"
             >
               <X size={13} />
-              <span>Reset Filter Vendor</span>
+              <span>Reset Filter</span>
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <button
             onClick={() => handleProviderFilterChange('')}
-            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
               !providerFilter 
-                ? 'bg-blue-600 text-white shadow-2xs' 
+                ? 'bg-blue-600 text-white shadow-2xs font-bold' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             <Layers size={13} />
-            <span>Semua Vendor ({allSchedules.length})</span>
+            <span>Semua Vendor</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              !providerFilter ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'
+            }`}>
+              {allSchedules.length}
+            </span>
           </button>
 
-          {/* Major Providers Fast Pills */}
+          {/* Clean Short-named Provider Pills */}
           {providers.map((prov) => {
             const count = allSchedules.filter((s) => String(s.service?.provider_id) === String(prov.id)).length;
             const isSelected = String(providerFilter) === String(prov.id);
+            const shortName = getShortVendorName(prov.provider_name);
 
             return (
               <button
                 key={prov.id}
                 onClick={() => handleProviderFilterChange(isSelected ? '' : String(prov.id))}
-                className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
                   isSelected
-                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-2xs font-bold ring-2 ring-blue-400/40'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                <span>{prov.provider_name.replace(/PT\s*/i, '').split('(')[0].trim()}</span>
+                <span>{shortName}</span>
                 {count > 0 && (
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'
+                    isSelected ? 'bg-white/20 text-white font-bold' : 'bg-slate-200 text-slate-800'
                   }`}>
                     {count}
                   </span>
@@ -510,30 +533,27 @@ export default function PaymentMonitoringPage() {
         </div>
       </div>
 
-      {/* Selected Vendor Banner (When a specific vendor is filtered) */}
+      {/* Selected Vendor Banner */}
       {activeVendor && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-600 text-white rounded-lg">
-              <Building2 size={22} />
+            <div className="p-2 bg-blue-600 text-white rounded-lg">
+              <Building2 size={18} />
             </div>
             <div>
-              <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <div className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
                 <span>Vendor Terpilih: {activeVendor.provider_name}</span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-100 text-blue-800 font-semibold">{activeVendor.provider_code}</span>
-              </div>
-              <div className="text-slate-600 text-xs mt-0.5">
-                Menampilkan seluruh tagihan dan invoice masuk khusus dari {activeVendor.provider_name}.
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-blue-100 text-blue-800 font-semibold">{activeVendor.provider_code}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
-              <span className="text-slate-500">Total Tagihan: </span>
+          <div className="flex items-center gap-3 text-xs">
+            <div className="bg-white px-3 py-1 rounded-lg border border-blue-200">
+              <span className="text-slate-500">Jumlah Tagihan: </span>
               <span className="font-bold text-blue-700">{total} Invoice</span>
             </div>
-            <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
+            <div className="bg-white px-3 py-1 rounded-lg border border-blue-200">
               <span className="text-slate-500">Total Nominal: </span>
               <span className="font-mono font-bold text-slate-900">{formatIDR(currentTotalAmount)}</span>
             </div>
