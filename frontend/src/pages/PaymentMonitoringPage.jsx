@@ -6,26 +6,42 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   Clock, 
-  Calendar,
-  Filter,
-  CheckSquare,
-  DollarSign,
-  X,
-  Download,
-  FileSpreadsheet
+  Calendar, 
+  Filter, 
+  CheckSquare, 
+  DollarSign, 
+  X, 
+  Download, 
+  FileSpreadsheet,
+  Building2,
+  Receipt,
+  FilePlus,
+  Eye,
+  Layers,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Info,
+  Tag
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
-import { exportToCSV } from '../utils/exporter';
+import { exportToCSV, exportToExcel } from '../utils/exporter';
 
 export default function PaymentMonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'ALL';
+  const initialProvider = searchParams.get('provider') || '';
 
   const [schedules, setSchedules] = useState([]);
+  const [allSchedules, setAllSchedules] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [serviceTypes, setServiceTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState(initialProvider);
   const [selectedIds, setSelectedIds] = useState([]);
 
   // Pagination states
@@ -36,27 +52,103 @@ export default function PaymentMonitoringPage() {
   // Modals
   const [payModalItem, setPayModalItem] = useState(null);
   const [bulkPayModalOpen, setBulkPayModalOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
 
   // Form states for Single Mark as Paid
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
+  const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
+  const [fakturPajakInput, setFakturPajakInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
   const [paymentNotes, setPaymentNotes] = useState('');
+
+  // Form state for "+ Catat Invoice Masuk" (Incoming Vendor Invoice)
+  const [invoiceForm, setInvoiceForm] = useState({
+    provider_id: '',
+    customer_id: '',
+    service_type_id: '',
+    service_name: '',
+    vendor_invoice_number: '',
+    faktur_pajak_number: '',
+    cid: '',
+    site_name: '',
+    amount: '',
+    include_ppn: false,
+    invoice_date: new Date().toISOString().split('T')[0],
+    due_date: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchOptions();
+  }, []);
+
+  useEffect(() => {
     fetchSchedules(page, limit);
-  }, [currentTab, page, limit, search]);
+  }, [currentTab, page, limit, search, providerFilter]);
+
+  const fetchOptions = async () => {
+    try {
+      const [pRes, cRes, stRes] = await Promise.all([
+        api.get('/providers?limit=100'),
+        api.get('/customers?limit=100'),
+        api.get('/service-types'),
+      ]);
+      if (pRes.success) setProviders(pRes.data || []);
+      if (cRes.success) setCustomers(cRes.data || []);
+      if (stRes.success) setServiceTypes(stRes.data || []);
+    } catch (err) {
+      console.error("Failed to load options:", err);
+    }
+  };
 
   const fetchSchedules = async (p = page, l = limit) => {
     setLoading(true);
     try {
       let statusParam = currentTab === 'ALL' ? '' : currentTab;
-      const res = await api.get(`/payment-schedules?status=${statusParam}&search=${search}&page=${p}&limit=${l}`);
+      let queryUrl = `/payment-schedules?status=${statusParam}&search=${encodeURIComponent(search)}&page=1&limit=500`;
+      if (providerFilter) {
+        queryUrl += `&provider_id=${providerFilter}`;
+      }
+
+      const res = await api.get(queryUrl);
       if (res.success) {
-        setSchedules(res.data || []);
-        setTotal(res.total || 0);
+        let list = res.data || [];
+        setAllSchedules(list);
+
+        // Client-side text search across invoice, provider, service name, CID
+        if (search && search.trim()) {
+          const sLower = search.trim().toLowerCase();
+          list = list.filter((item) => {
+            const sName = (item.service?.service_name || '').toLowerCase();
+            const pName = (item.service?.provider?.provider_name || '').toLowerCase();
+            const cid = (item.service?.cid || '').toLowerCase();
+            const contract = (item.service?.contract_number || '').toLowerCase();
+            const notes = (item.notes || '').toLowerCase();
+            const period = (item.period || '').toLowerCase();
+            return (
+              sName.includes(sLower) ||
+              pName.includes(sLower) ||
+              cid.includes(sLower) ||
+              contract.includes(sLower) ||
+              notes.includes(sLower) ||
+              period.includes(sLower)
+            );
+          });
+        }
+
+        // Apply Provider Filter if set
+        if (providerFilter) {
+          list = list.filter((item) => String(item.service?.provider_id) === String(providerFilter));
+        }
+
+        setTotal(list.length);
+        const startIndex = (p - 1) * l;
+        setSchedules(list.slice(startIndex, startIndex + l));
       }
     } catch (err) {
       console.error("Failed to load schedules:", err);
@@ -66,7 +158,14 @@ export default function PaymentMonitoringPage() {
   };
 
   const handleTabChange = (tab) => {
-    setSearchParams({ tab });
+    setSearchParams({ tab, provider: providerFilter });
+    setSelectedIds([]);
+    setPage(1);
+  };
+
+  const handleProviderFilterChange = (provId) => {
+    setProviderFilter(provId);
+    setSearchParams({ tab: currentTab, provider: provId });
     setSelectedIds([]);
     setPage(1);
   };
@@ -91,23 +190,36 @@ export default function PaymentMonitoringPage() {
       return;
     }
 
-    const exportRows = schedules.map((item) => ({
-      'Periode Tagihan': item.period,
-      'Nama Layanan': item.service?.service_name || '',
-      'Provider': item.service?.provider?.provider_name || '',
-      'Pelanggan': item.service?.customer?.customer_name || '',
-      'Circuit ID (CID)': item.service?.cid || '',
-      'Site ID': item.service?.site_id || '',
-      'Site / Lokasi': item.service?.site_name || item.service?.location || '',
-      'Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
-      'Nominal Tagihan (IDR)': item.amount || 0,
-      'Sisa Tagihan (IDR)': item.remaining_amount || 0,
-      'Status Pembayaran': item.status,
-      'Tanggal Bayar': item.paid_date ? new Date(item.paid_date).toLocaleDateString('id-ID') : '-',
-      'No Referensi Bayar': item.payment_reference || '-',
-    }));
+    const exportRows = (allSchedules.length ? allSchedules : schedules).map((item) => {
+      // Parse vendor invoice info from notes or attributes
+      const notes = item.notes || '';
+      const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
+      const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
-    exportToCSV(exportRows, null, `Laporan_Tagihan_${currentTab}`);
+      return {
+        'Periode Tagihan': item.period,
+        'Nama Layanan / Tagihan': item.service?.service_name || '',
+        'Vendor / Provider': item.service?.provider?.provider_name || '',
+        'No. Invoice Vendor': invMatch ? invMatch[1] : (item.service?.contract_number || '-'),
+        'No. Faktur Pajak': fakturMatch ? fakturMatch[1] : '-',
+        'Pelanggan': item.service?.customer?.customer_name || '',
+        'Circuit ID / Site': item.service?.cid || item.service?.site_id || '-',
+        'Site / Lokasi': item.service?.site_name || item.service?.location || '-',
+        'Tanggal Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
+        'Nominal Tagihan (IDR)': item.amount || 0,
+        'Sisa Tagihan (IDR)': item.remaining_amount || 0,
+        'Status Pembayaran': item.status,
+        'Tanggal Bayar': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
+        'No Referensi Bayar': item.notes || '-',
+      };
+    });
+
+    const activeProviderName = providers.find((p) => String(p.id) === String(providerFilter))?.provider_name;
+    const filename = activeProviderName 
+      ? `Rekap_Invoice_${activeProviderName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentTab}`
+      : `Rekap_Invoice_Semua_Vendor_${currentTab}`;
+
+    exportToExcel(exportRows, filename);
   };
 
   const handleSelectAll = (e) => {
@@ -134,20 +246,26 @@ export default function PaymentMonitoringPage() {
     setPaymentAmount(item.remaining_amount || item.amount);
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentRef('');
-    setPaymentNotes('');
+    setInvoiceNumberInput('');
+    setFakturPajakInput('');
+    setPaymentNotes(item.notes || '');
   };
 
   const handleSinglePaymentSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let combinedNotes = paymentNotes;
+      if (invoiceNumberInput) combinedNotes += ` | No. Inv: ${invoiceNumberInput}`;
+      if (fakturPajakInput) combinedNotes += ` | Faktur: ${fakturPajakInput}`;
+
       const payload = {
         schedule_id: payModalItem.id,
         payment_date: paymentDate,
         payment_amount: parseFloat(paymentAmount),
-        payment_reference: paymentRef,
+        payment_reference: paymentRef || `TRX-${Date.now()}`,
         payment_method: paymentMethod,
-        notes: paymentNotes,
+        notes: combinedNotes.trim(),
       };
 
       const res = await api.post('/payment-schedules/mark-as-paid', payload);
@@ -166,12 +284,15 @@ export default function PaymentMonitoringPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let combinedNotes = paymentNotes;
+      if (invoiceNumberInput) combinedNotes += ` | Ref Inv: ${invoiceNumberInput}`;
+
       const payload = {
         schedule_ids: selectedIds,
         payment_date: paymentDate,
-        payment_reference: paymentRef,
+        payment_reference: paymentRef || `BATCH-${Date.now()}`,
         payment_method: paymentMethod,
-        notes: paymentNotes,
+        notes: combinedNotes.trim(),
       };
 
       const res = await api.post('/payment-schedules/bulk-mark-as-paid', payload);
@@ -182,6 +303,79 @@ export default function PaymentMonitoringPage() {
       }
     } catch (err) {
       alert(err.message || 'Bulk payment submission failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- RECORD INCOMING VENDOR INVOICE (DIRECT ENTRY) ---
+  const openInvoiceModal = () => {
+    setInvoiceForm({
+      provider_id: providerFilter || (providers[0]?.id || ''),
+      customer_id: customers[0]?.id || 1,
+      service_type_id: serviceTypes[0]?.id || 1,
+      service_name: '',
+      vendor_invoice_number: '',
+      faktur_pajak_number: '',
+      cid: '',
+      site_name: '',
+      amount: '',
+      include_ppn: false,
+      invoice_date: new Date().toISOString().split('T')[0],
+      due_date: new Date().toISOString().split('T')[0],
+      notes: '',
+    });
+    setInvoiceModalOpen(true);
+  };
+
+  const handleSaveIncomingInvoice = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      let rawAmount = parseFloat(invoiceForm.amount) || 0;
+      if (invoiceForm.include_ppn) {
+        rawAmount = rawAmount * 1.11; // Include PPN 11%
+      }
+
+      const selectedProv = providers.find((p) => String(p.id) === String(invoiceForm.provider_id));
+      const provName = selectedProv?.provider_name || 'Vendor';
+
+      const invoiceServiceName = invoiceForm.service_name.trim() 
+        || `Tagihan Invoice ${provName} - ${invoiceForm.vendor_invoice_number || 'No Ref'}`;
+
+      let notesCombined = `No. Inv: ${invoiceForm.vendor_invoice_number || '-'}`;
+      if (invoiceForm.faktur_pajak_number) notesCombined += ` | Faktur: ${invoiceForm.faktur_pajak_number}`;
+      if (invoiceForm.notes) notesCombined += ` | Ket: ${invoiceForm.notes}`;
+
+      const servicePayload = {
+        service_name: invoiceServiceName,
+        service_type_id: parseInt(invoiceForm.service_type_id) || (serviceTypes[0]?.id || 1),
+        customer_id: parseInt(invoiceForm.customer_id) || (customers[0]?.id || 1),
+        provider_id: parseInt(invoiceForm.provider_id) || (providers[0]?.id || 1),
+        cid: invoiceForm.cid || `INV-${invoiceForm.vendor_invoice_number || Date.now()}`,
+        site_name: invoiceForm.site_name || 'Kantor Pusat / Data Center',
+        location: invoiceForm.site_name || '-',
+        contract_number: invoiceForm.vendor_invoice_number || `CTR-${Date.now()}`,
+        billing_cycle: 'MONTHLY',
+        due_day: new Date(invoiceForm.due_date).getDate() || 25,
+        amount: rawAmount,
+        start_date: new Date(invoiceForm.due_date).toISOString(),
+        status: 'ACTIVE',
+        attributes: {
+          vendor_invoice_number: invoiceForm.vendor_invoice_number,
+          faktur_pajak_number: invoiceForm.faktur_pajak_number,
+          invoice_date: invoiceForm.invoice_date,
+        },
+      };
+
+      const res = await api.post('/services', servicePayload);
+      if (res.success) {
+        setInvoiceModalOpen(false);
+        alert(`Invoice Masuk dari ${provName} Berhasil Dicatat ke Jadwal Tagihan!`);
+        fetchSchedules(1, limit);
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal mencatat invoice masuk');
     } finally {
       setSubmitting(false);
     }
@@ -209,35 +403,143 @@ export default function PaymentMonitoringPage() {
   // Check Grace Period condition
   const isGracePeriodActive = (currentTab === 'OVERDUE' || currentTab === 'DUE_TODAY' || currentTab === 'DUE_SOON') && total === 0 && !loading;
 
+  // Selected vendor name
+  const activeVendor = providers.find((p) => String(p.id) === String(providerFilter));
+
+  // Calculate stats for current view
+  const currentTotalAmount = (allSchedules.length ? allSchedules : schedules).reduce((sum, item) => sum + (item.remaining_amount || item.amount || 0), 0);
+  const currentOverdueCount = (allSchedules.length ? allSchedules : schedules).filter((item) => item.status === 'OVERDUE').length;
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-headline-lg text-on-surface font-bold">Single Inbox Payment Monitoring</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">Monitoring jadwal jatuh tempo, histori transaksi, serta pemrosesan pembayaran tunggal maupun bulk.</p>
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            Monitoring jadwal jatuh tempo, histori transaksi, dan pencatatan invoice tagihan masuk dari semua vendor (JIP, iForte, Satkom, Parama, Jedi, dll).
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={openInvoiceModal}
+            className="px-4 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-2"
+          >
+            <FilePlus size={16} />
+            <span>+ Catat Invoice Masuk</span>
+          </button>
+
           <button
             onClick={handleExportReport}
             className="px-4 py-2 bg-emerald-600 text-white font-semibold text-xs rounded-lg hover:bg-emerald-700 transition-colors shadow-xs flex items-center gap-2"
           >
             <FileSpreadsheet size={16} />
-            <span>Export Laporan (Excel/CSV)</span>
+            <span>Export Rekap ({providerFilter ? (activeVendor?.provider_name?.slice(0, 15) || 'Vendor') : 'Semua'})</span>
           </button>
 
           {selectedIds.length > 0 && (
             <button
               onClick={() => setBulkPayModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-2"
+              className="px-4 py-2 bg-purple-600 text-white font-semibold text-xs rounded-lg hover:bg-purple-700 transition-colors shadow-xs flex items-center gap-2"
             >
               <CheckSquare size={16} />
-              <span>Mark {selectedIds.length} Selected as Paid</span>
+              <span>Bayar {selectedIds.length} Invoice Terpilih</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Quick Provider Selection Pills Bar */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+          <div className="flex items-center gap-1.5">
+            <Building2 size={15} className="text-blue-600" />
+            <span>Filter Cepat Vendor / Provider Invoice:</span>
+          </div>
+          {providerFilter && (
+            <button
+              onClick={() => handleProviderFilterChange('')}
+              className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1"
+            >
+              <X size={13} />
+              <span>Reset Filter Vendor</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <button
+            onClick={() => handleProviderFilterChange('')}
+            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              !providerFilter 
+                ? 'bg-blue-600 text-white shadow-2xs' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Layers size={13} />
+            <span>Semua Vendor ({allSchedules.length})</span>
+          </button>
+
+          {/* Major Providers Fast Pills */}
+          {providers.map((prov) => {
+            const count = allSchedules.filter((s) => String(s.service?.provider_id) === String(prov.id)).length;
+            const isSelected = String(providerFilter) === String(prov.id);
+
+            return (
+              <button
+                key={prov.id}
+                onClick={() => handleProviderFilterChange(isSelected ? '' : String(prov.id))}
+                className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span>{prov.provider_name.replace(/PT\s*/i, '').split('(')[0].trim()}</span>
+                {count > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected Vendor Banner (When a specific vendor is filtered) */}
+      {activeVendor && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 text-white rounded-lg">
+              <Building2 size={22} />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <span>Vendor Terpilih: {activeVendor.provider_name}</span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-100 text-blue-800 font-semibold">{activeVendor.provider_code}</span>
+              </div>
+              <div className="text-slate-600 text-xs mt-0.5">
+                Menampilkan seluruh tagihan dan invoice masuk khusus dari {activeVendor.provider_name}.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-medium">
+            <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
+              <span className="text-slate-500">Total Tagihan: </span>
+              <span className="font-bold text-blue-700">{total} Invoice</span>
+            </div>
+            <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
+              <span className="text-slate-500">Total Nominal: </span>
+              <span className="font-mono font-bold text-slate-900">{formatIDR(currentTotalAmount)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grace Period Notification Banner */}
       {isGracePeriodActive && (
@@ -247,9 +549,9 @@ export default function PaymentMonitoringPage() {
               <CheckCircle2 size={20} />
             </div>
             <div>
-              <div className="font-bold text-emerald-900 text-sm">🎉 Fitur Grace Period Aktif: Semua Tagihan FO Bulan Ini Telah Lunas!</div>
+              <div className="font-bold text-emerald-900 text-sm">Semua Tagihan Invoice Kategori Ini Telah Lunas!</div>
               <div className="text-emerald-700 text-xs mt-0.5">
-                Tidak ada sisa tagihan untuk kategori ini. Sistem otomatis berpindah ke jadwal tagihan periode bulan depan (UPCOMING).
+                Tidak ada sisa tagihan untuk tab ini. Anda dapat melihat seluruh tagihan periode bulan depan di tab All Schedules.
               </div>
             </div>
           </div>
@@ -257,47 +559,64 @@ export default function PaymentMonitoringPage() {
             onClick={() => handleTabChange('ALL')}
             className="px-4 py-2 bg-emerald-700 text-white font-bold text-xs rounded-lg hover:bg-emerald-800 transition-colors shrink-0"
           >
-            Lihat Tagihan Bulan Depan →
+            Lihat Semua Tagihan →
           </button>
         </div>
       )}
 
-      {/* Tabs Bar */}
+      {/* Status Tabs Bar */}
       <div className="flex items-center gap-2 border-b border-outline-variant/40 overflow-x-auto pb-1">
         {[
-          { key: 'ALL', label: 'All Schedules' },
-          { key: 'DUE_TODAY', label: 'Due Today' },
-          { key: 'DUE_SOON', label: 'Due Soon (7 Days)' },
-          { key: 'OVERDUE', label: 'Overdue' },
-          { key: 'PAID', label: 'Paid' },
+          { key: 'ALL', label: 'Semua Tagihan & Invoice', count: allSchedules.length },
+          { key: 'DUE_TODAY', label: 'Due Today (Jatuh Tempo Hari Ini)', count: allSchedules.filter((s) => s.status === 'DUE_TODAY').length },
+          { key: 'DUE_SOON', label: 'Due Soon (7 Hari ke Depan)', count: allSchedules.filter((s) => s.status === 'DUE_SOON').length },
+          { key: 'OVERDUE', label: 'Overdue (Lewat Jatuh Tempo)', count: allSchedules.filter((s) => s.status === 'OVERDUE').length },
+          { key: 'PAID', label: 'Lunas (Paid)', count: allSchedules.filter((s) => s.status === 'PAID').length },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => handleTabChange(tab.key)}
             className={`
-              px-4 py-2 font-label-md text-label-md font-semibold border-b-2 whitespace-nowrap transition-colors
+              px-4 py-2.5 font-label-md text-xs font-semibold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 rounded-t-lg
               ${currentTab === tab.key 
-                ? 'border-blue-600 text-blue-600 bg-blue-50/60 rounded-t-lg font-bold' 
+                ? 'border-blue-600 text-blue-600 bg-blue-50/60 font-bold' 
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'}
             `}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
+              currentTab === tab.key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {tab.count}
+            </span>
           </button>
         ))}
       </div>
 
       {/* Search & Filter Controls */}
-      <form onSubmit={handleSearchSubmit} className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
+      <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
           <input
             type="text"
-            placeholder="Search contract, CID, or service name..."
+            placeholder="Cari nomor invoice vendor, nama layanan, provider, CID, atau nomor faktur..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
           />
         </div>
+
+        <select
+          value={providerFilter}
+          onChange={(e) => handleProviderFilterChange(e.target.value)}
+          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800"
+        >
+          <option value="">Semua Provider / Vendor...</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>{p.provider_name}</option>
+          ))}
+        </select>
+
         <button
           type="submit"
           className="px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
@@ -333,70 +652,100 @@ export default function PaymentMonitoringPage() {
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                       />
                     </th>
-                    <th className="py-3.5 px-4">Period</th>
-                    <th className="py-3.5 px-4">Service & Provider</th>
-                    <th className="py-3.5 px-4">CID & Site</th>
-                    <th className="py-3.5 px-4">Due Date</th>
-                    <th className="py-3.5 px-4 text-right">Remaining Amount</th>
+                    <th className="py-3.5 px-4">Periode</th>
+                    <th className="py-3.5 px-4">Vendor / Provider</th>
+                    <th className="py-3.5 px-4">Nama Tagihan / Layanan</th>
+                    <th className="py-3.5 px-4">No. Invoice & Ref</th>
+                    <th className="py-3.5 px-4">Jatuh Tempo</th>
+                    <th className="py-3.5 px-4 text-right">Nominal Tagihan</th>
                     <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center">Action</th>
+                    <th className="py-3.5 px-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[13px]">
                   {schedules.length > 0 ? (
-                    schedules.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <input
-                            type="checkbox"
-                            disabled={item.status === 'PAID'}
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => handleSelectOne(item.id)}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-600 disabled:opacity-30"
-                          />
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
-                          {item.period}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-[14px] leading-tight">{item.service?.service_name}</div>
-                          <div className="text-[12px] text-slate-500 font-medium mt-0.5">{item.service?.provider?.provider_name}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-mono font-semibold text-[13px] text-slate-900 tracking-tight leading-tight select-all">
-                            {item.service?.cid || '-'}
-                          </div>
-                          <div className="text-[12px] text-slate-500 font-normal leading-snug mt-0.5">
-                            {item.service?.site_name || item.service?.location}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-800 whitespace-nowrap">
-                          {new Date(item.due_date).toLocaleDateString('id-ID')}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
-                          {formatIDR(item.remaining_amount)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {getStatusBadge(item.status)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {item.status !== 'PAID' ? (
-                            <button
-                              onClick={() => openPayModal(item)}
-                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
-                            >
-                              Mark as Paid
-                            </button>
-                          ) : (
-                            <span className="text-xs text-emerald-600 font-semibold">Completed</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    schedules.map((item) => {
+                      const notes = item.notes || '';
+                      const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
+                      const displayInvoiceNum = invMatch ? invMatch[1] : (item.service?.contract_number || '-');
+
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <input
+                              type="checkbox"
+                              disabled={item.status === 'PAID'}
+                              checked={selectedIds.includes(item.id)}
+                              onChange={() => handleSelectOne(item.id)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-600 disabled:opacity-30"
+                            />
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                            {item.period}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                              <Building2 size={14} className="text-blue-600 shrink-0" />
+                              <span>{item.service?.provider?.provider_name || 'Vendor'}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                              {item.service?.customer?.customer_name}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 text-[14px] leading-tight">{item.service?.service_name}</div>
+                            <div className="text-[12px] text-slate-500 font-normal mt-0.5">
+                              {item.service?.site_name || item.service?.location || '-'}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-mono font-semibold text-xs text-blue-700 select-all">
+                              {displayInvoiceNum}
+                            </div>
+                            {item.service?.cid && (
+                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                CID: {item.service.cid}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-800 whitespace-nowrap">
+                            {new Date(item.due_date).toLocaleDateString('id-ID')}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
+                            {formatIDR(item.remaining_amount || item.amount)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            {getStatusBadge(item.status)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => setDetailItem(item)}
+                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Lihat Detail Invoice"
+                              >
+                                <Eye size={15} />
+                              </button>
+
+                              {item.status !== 'PAID' ? (
+                                <button
+                                  onClick={() => openPayModal(item)}
+                                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
+                                >
+                                  Bayar
+                                </button>
+                              ) : (
+                                <span className="text-xs text-emerald-600 font-semibold px-2 py-1 bg-emerald-50 rounded">Lunas</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-500 font-medium">
-                        No payment schedules found for the selected tab.
+                      <td colSpan={9} className="py-12 text-center text-slate-500 font-medium">
+                        Tidak ada tagihan atau invoice masuk ditemukan untuk filter ini.
                       </td>
                     </tr>
                   )}
@@ -420,54 +769,285 @@ export default function PaymentMonitoringPage() {
         )}
       </div>
 
-      {/* Single Mark As Paid Modal */}
+      {/* ========================================================= */}
+      {/* MODAL 1: CATAT INVOICE MASUK (INCOMING VENDOR INVOICE)    */}
+      {/* ========================================================= */}
+      {invoiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-display text-headline-md font-bold text-slate-900 flex items-center gap-2">
+                  <Receipt className="text-blue-600" size={20} />
+                  <span>Pencatatan Invoice Masuk dari Vendor</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Catat invoice yang baru diterima dari JIP, iForte, Satkom, Parama, Jedi, dll ke daftar kewajiban tagihan.
+                </p>
+              </div>
+              <button onClick={() => setInvoiceModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveIncomingInvoice} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Vendor / Provider */}
+                <div>
+                  <label className="font-semibold text-slate-800">Vendor / Provider Penerbit Invoice *</label>
+                  <select
+                    required
+                    value={invoiceForm.provider_id}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, provider_id: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-900"
+                  >
+                    <option value="">Pilih Vendor (JIP, iForte, Satkom, Parama, Jedi, dll)...</option>
+                    {providers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.provider_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Customer Entity */}
+                <div>
+                  <label className="font-semibold text-slate-800">Customer / Entitas Tertagih *</label>
+                  <select
+                    required
+                    value={invoiceForm.customer_id}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, customer_id: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                  >
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.customer_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Nomor Invoice Vendor */}
+                <div>
+                  <label className="font-semibold text-slate-800">Nomor Invoice Vendor *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. INV/JIP/2026/08/0109 atau 8829/IFORTE/08/26"
+                    value={invoiceForm.vendor_invoice_number}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, vendor_invoice_number: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-700"
+                  />
+                </div>
+
+                {/* Nomor Faktur Pajak */}
+                <div>
+                  <label className="font-semibold text-slate-800">Nomor Faktur Pajak (Jika Ada)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 010.000-26.12345678"
+                    value={invoiceForm.faktur_pajak_number}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, faktur_pajak_number: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
+                  />
+                </div>
+
+                {/* Deskripsi Tagihan */}
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-800">Peruntukan / Nama Tagihan Layanan *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Tagihan Sewa FO Trunk Balaraja / Tagihan Bandwidth VSAT Satkomindo"
+                    value={invoiceForm.service_name}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, service_name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
+                  />
+                </div>
+
+                {/* Tipe Layanan */}
+                <div>
+                  <label className="font-semibold text-slate-800">Kategori / Tipe Layanan *</label>
+                  <select
+                    value={invoiceForm.service_type_id}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, service_type_id: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                  >
+                    {serviceTypes.map((st) => (
+                      <option key={st.id} value={st.id}>{st.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Circuit ID / Site / Link ID */}
+                <div>
+                  <label className="font-semibold text-slate-800">Circuit ID / Link ID (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CID-998811 / Site Balaraja"
+                    value={invoiceForm.cid}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, cid: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
+                  />
+                </div>
+
+                {/* Tanggal Invoice Diterima */}
+                <div>
+                  <label className="font-semibold text-slate-800">Tanggal Invoice Diterima *</label>
+                  <input
+                    type="date"
+                    required
+                    value={invoiceForm.invoice_date}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_date: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
+                  />
+                </div>
+
+                {/* Tanggal Jatuh Tempo */}
+                <div>
+                  <label className="font-semibold text-slate-800">Tanggal Jatuh Tempo Pembayaran *</label>
+                  <input
+                    type="date"
+                    required
+                    value={invoiceForm.due_date}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, due_date: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-rose-700"
+                  />
+                </div>
+
+                {/* Nominal Tagihan */}
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-800">Nominal Tagihan (IDR) *</label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="e.g. 15000000"
+                      value={invoiceForm.amount}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono font-bold text-slate-900 text-sm"
+                    />
+                    <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={invoiceForm.include_ppn}
+                        onChange={(e) => setInvoiceForm({ ...invoiceForm, include_ppn: e.target.checked })}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                      />
+                      <span>+ PPN 11%</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Catatan Tambahan */}
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-800">Catatan Invoice (Optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Contoh: Invoice include potongan restitusi SLA..."
+                    value={invoiceForm.notes}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setInvoiceModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{submitting ? 'Menyimpan...' : 'Simpan & Jadwalkan Tagihan'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2: SINGLE MARK AS PAID                             */}
+      {/* ========================================================= */}
       {payModalItem && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">Record Payment</h3>
+              <h3 className="font-bold text-slate-900 text-base">Proses Pembayaran Tagihan</h3>
               <button onClick={() => setPayModalItem(null)} className="text-slate-400 hover:text-slate-700">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-lg text-xs space-y-1 border border-slate-200">
-              <div className="font-bold text-slate-900">{payModalItem.service?.service_name}</div>
-              <div>Period: <span className="font-mono">{payModalItem.period}</span> | CID: <span className="font-mono">{payModalItem.service?.cid}</span></div>
-              <div className="text-blue-600 font-bold">Remaining Total: {formatIDR(payModalItem.remaining_amount)}</div>
+            <div className="bg-blue-50/70 p-3 rounded-lg text-xs space-y-1 border border-blue-100">
+              <div className="font-bold text-slate-900 text-[13px]">{payModalItem.service?.service_name}</div>
+              <div className="text-slate-600">
+                Vendor: <span className="font-bold text-blue-700">{payModalItem.service?.provider?.provider_name}</span> | Periode: <span className="font-mono">{payModalItem.period}</span>
+              </div>
+              <div className="text-blue-700 font-bold text-sm pt-0.5">
+                Total Kewajiban: {formatIDR(payModalItem.remaining_amount || payModalItem.amount)}
+              </div>
             </div>
 
-            <form onSubmit={handleSinglePaymentSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSinglePaymentSubmit} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-800">Payment Date</label>
+                  <label className="font-semibold text-slate-800">Tanggal Pembayaran *</label>
                   <input
                     type="date"
                     required
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-800">Payment Amount (IDR)</label>
+                  <label className="font-semibold text-slate-800">Nominal Bayar (IDR) *</label>
                   <input
                     type="number"
                     required
                     step="0.01"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-semibold text-blue-600"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-800">No. Invoice Vendor</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. INV-JIP-0089"
+                    value={invoiceNumberInput}
+                    onChange={(e) => setInvoiceNumberInput(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-800">No. Faktur Pajak</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 010.000-26.xxx"
+                    value={fakturPajakInput}
+                    onChange={(e) => setFakturPajakInput(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-800">Payment Reference / Bank Transfer No.</label>
+                <label className="font-semibold text-slate-800">Nomor Referensi Bank / Bukti Transfer *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. TRX-BCA-99881122"
+                  placeholder="e.g. TRX-BCA-99881122 / NOREK-MANDIRI-4455"
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
@@ -475,28 +1055,17 @@ export default function PaymentMonitoringPage() {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-800">Payment Method</label>
+                <label className="font-semibold text-slate-800">Metode Pembayaran</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
                 >
-                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Bank Transfer">Bank Transfer (BCA / Mandiri / BNI)</option>
                   <option value="Virtual Account">Virtual Account</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Cash / Cheque">Cash / Cheque</option>
+                  <option value="Corporate Credit Card">Corporate Credit Card</option>
+                  <option value="Cheque / Giro">Cheque / Giro</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-800">Notes (Optional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="Additional payment notes..."
-                  value={paymentNotes}
-                  onChange={(e) => setPaymentNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                />
               </div>
 
               <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
@@ -505,14 +1074,14 @@ export default function PaymentMonitoringPage() {
                   onClick={() => setPayModalItem(null)}
                   className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
-                  Cancel
+                  Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
                 >
-                  {submitting ? 'Saving...' : 'Confirm Payment'}
+                  {submitting ? 'Menyimpan...' : 'Konfirmasi Pelunasan'}
                 </button>
               </div>
             </form>
@@ -520,12 +1089,14 @@ export default function PaymentMonitoringPage() {
         </div>
       )}
 
-      {/* Bulk Mark As Paid Modal */}
+      {/* ========================================================= */}
+      {/* MODAL 3: BULK MARK AS PAID                                */}
+      {/* ========================================================= */}
       {bulkPayModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">Bulk Payment ({selectedIds.length} Items)</h3>
+              <h3 className="font-bold text-slate-900 text-base">Pelunasan Massal ({selectedIds.length} Invoice Tagihan)</h3>
               <button onClick={() => setBulkPayModalOpen(false)} className="text-slate-400 hover:text-slate-700">
                 <X size={20} />
               </button>
@@ -533,22 +1104,22 @@ export default function PaymentMonitoringPage() {
 
             <form onSubmit={handleBulkPaymentSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-800">Payment Date</label>
+                <label className="font-semibold text-slate-800">Tanggal Pembayaran Batch *</label>
                 <input
                   type="date"
                   required
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-slate-800">Batch Payment Reference</label>
+                <label className="font-semibold text-slate-800">Nomor Referensi Batch Transfer *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. BATCH-TRX-202608"
+                  placeholder="e.g. BATCH-TRX-202608-IFORTE"
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
@@ -556,14 +1127,15 @@ export default function PaymentMonitoringPage() {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-800">Payment Method</label>
+                <label className="font-semibold text-slate-800">Metode Pembayaran</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
                 >
-                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Bank Transfer">Bank Transfer (BCA / Mandiri)</option>
                   <option value="Virtual Account">Virtual Account</option>
+                  <option value="Cheque / Giro">Cheque / Giro</option>
                 </select>
               </div>
 
@@ -573,17 +1145,80 @@ export default function PaymentMonitoringPage() {
                   onClick={() => setBulkPayModalOpen(false)}
                   className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
-                  Cancel
+                  Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700"
+                  className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700"
                 >
-                  {submitting ? 'Processing...' : 'Bulk Mark as Paid'}
+                  {submitting ? 'Memproses...' : `Konfirmasi Pelunasan ${selectedIds.length} Tagihan`}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: DETAIL TAGIHAN & INVOICE VENDOR                  */}
+      {/* ========================================================= */}
+      {detailItem && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700">
+                  {detailItem.service?.provider?.provider_name}
+                </span>
+                <h3 className="font-bold text-slate-900 text-base mt-1">{detailItem.service?.service_name}</h3>
+              </div>
+              <button onClick={() => setDetailItem(null)} className="text-slate-400 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                <div>
+                  <div className="text-slate-500 font-medium">Periode Tagihan</div>
+                  <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.period}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 font-medium">Status Pembayaran</div>
+                  <div className="mt-0.5">{getStatusBadge(detailItem.status)}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 font-medium">Tanggal Jatuh Tempo</div>
+                  <div className="font-bold text-rose-700 mt-0.5">{new Date(detailItem.due_date).toLocaleDateString('id-ID')}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 font-medium">Total Nominal Tagihan</div>
+                  <div className="font-mono font-bold text-blue-700 mt-0.5">{formatIDR(detailItem.amount)}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 font-medium">Circuit ID / Contract</div>
+                  <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.service?.cid || detailItem.service?.contract_number || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 font-medium">Customer Entitas</div>
+                  <div className="font-bold text-slate-900 mt-0.5">{detailItem.service?.customer?.customer_name}</div>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-slate-200">
+                  <div className="text-slate-500 font-medium">Catatan / Rincian Invoice</div>
+                  <div className="font-mono text-slate-800 text-xs mt-0.5">{detailItem.notes || '-'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200">
+              <button
+                onClick={() => setDetailItem(null)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 font-semibold rounded-lg hover:bg-slate-200 text-xs"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
