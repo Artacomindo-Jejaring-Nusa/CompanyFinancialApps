@@ -97,8 +97,8 @@ func (u *paymentScheduleUsecase) MarkAsPaid(ctx context.Context, req domain.Mark
 		return nil, errors.New("payment schedule is already fully paid")
 	}
 
-	if req.PaymentAmount > schedule.RemainingAmount {
-		return nil, fmt.Errorf("payment amount (%.2f) exceeds remaining amount (%.2f)", req.PaymentAmount, schedule.RemainingAmount)
+	if req.PaymentAmount <= 0 {
+		return nil, errors.New("payment amount must be greater than zero")
 	}
 
 	newRemaining := schedule.RemainingAmount - req.PaymentAmount

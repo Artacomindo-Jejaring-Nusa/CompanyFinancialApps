@@ -57,6 +57,8 @@ export default function PaymentMonitoringPage() {
 
   // Form states for Single Mark as Paid
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [baseAmount, setBaseAmount] = useState('');
+  const [adminFee, setAdminFee] = useState(0);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
   const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
@@ -260,13 +262,30 @@ export default function PaymentMonitoringPage() {
   };
 
   const openPayModal = (item) => {
+    const base = item.remaining_amount || item.amount || 0;
     setPayModalItem(item);
-    setPaymentAmount(item.remaining_amount || item.amount);
+    setBaseAmount(base);
+    setAdminFee(0);
+    setPaymentAmount(base);
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentRef('');
     setInvoiceNumberInput('');
     setFakturPajakInput('');
     setPaymentNotes(item.notes || '');
+  };
+
+  const handleBaseAmountChange = (val) => {
+    setBaseAmount(val);
+    const numBase = parseFloat(val) || 0;
+    const numFee = parseFloat(adminFee) || 0;
+    setPaymentAmount(numBase + numFee);
+  };
+
+  const handleAdminFeeChange = (fee) => {
+    setAdminFee(fee);
+    const numBase = parseFloat(baseAmount) || 0;
+    const numFee = parseFloat(fee) || 0;
+    setPaymentAmount(numBase + numFee);
   };
 
   const handleSinglePaymentSubmit = async (e) => {
@@ -276,6 +295,9 @@ export default function PaymentMonitoringPage() {
       let combinedNotes = paymentNotes;
       if (invoiceNumberInput) combinedNotes += ` | No. Inv: ${invoiceNumberInput}`;
       if (fakturPajakInput) combinedNotes += ` | Faktur: ${fakturPajakInput}`;
+      if (parseFloat(adminFee) > 0) {
+        combinedNotes += ` | Biaya Admin Bank: ${formatIDR(adminFee)}`;
+      }
 
       const payload = {
         schedule_id: payModalItem.id,
@@ -1014,7 +1036,8 @@ export default function PaymentMonitoringPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSinglePaymentSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleSinglePaymentSubmit} className="space-y-3.5 text-xs">
+              {/* Payment Date & Method */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-800">Tanggal Pembayaran *</label>
@@ -1027,15 +1050,95 @@ export default function PaymentMonitoringPage() {
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-800">Nominal Bayar (IDR) *</label>
-                  <input
-                    type="number"
-                    required
-                    step="0.01"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-600"
-                  />
+                  <label className="font-semibold text-slate-800">Metode Pembayaran</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-800"
+                  >
+                    <option value="Bank Transfer BCA">Bank Transfer (BCA)</option>
+                    <option value="Bank Transfer Mandiri">Bank Transfer (Mandiri)</option>
+                    <option value="Bank Transfer BRI">Bank Transfer (BRI)</option>
+                    <option value="Bank Transfer BNI">Bank Transfer (BNI)</option>
+                    <option value="Virtual Account">Virtual Account</option>
+                    <option value="Corporate Credit Card">Corporate Credit Card</option>
+                    <option value="Cheque / Giro">Cheque / Giro</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Dynamic Payment Amount & Admin Fee Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800">Rincian Nominal Transfer:</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Bisa disesuaikan mandiri (opsional)</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Base Amount */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">Nominal Pokok Tagihan (IDR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={baseAmount}
+                      onChange={(e) => handleBaseAmountChange(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-slate-800"
+                    />
+                  </div>
+
+                  {/* Admin Fee / Tambahan */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">Biaya Admin Bank / Tambahan (IDR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      value={adminFee}
+                      onChange={(e) => handleAdminFeeChange(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-amber-700"
+                    />
+                  </div>
+                </div>
+
+                {/* Admin Fee Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 mr-1">Preset Admin:</span>
+                  {[
+                    { label: 'Gratis (Rp 0)', val: 0 },
+                    { label: '+ Rp 500 (BI-FAST)', val: 500 },
+                    { label: '+ Rp 2.500 (ATM)', val: 2500 },
+                    { label: '+ Rp 6.500 (Kliring/Online)', val: 6500 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => handleAdminFeeChange(preset.val)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                        Number(adminFee) === preset.val
+                          ? 'bg-amber-600 text-white border-amber-600 font-bold'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Final Total Amount Box */}
+                <div className="p-2.5 bg-blue-600 text-white rounded-lg flex items-center justify-between shadow-xs">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
+                      Total Realisasi Pembayaran (IDR)
+                    </div>
+                    <div className="text-[11px] opacity-80 mt-0.5 font-mono">
+                      Pokok: {formatIDR(baseAmount || 0)} {Number(adminFee) > 0 ? `+ Admin: ${formatIDR(adminFee)}` : ''}
+                    </div>
+                  </div>
+                  <div className="font-mono text-base sm:text-lg font-black tracking-tight">
+                    {formatIDR(paymentAmount || 0)}
+                  </div>
                 </div>
               </div>
 
