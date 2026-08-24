@@ -30,7 +30,8 @@ import {
   Store,
   ArrowRight,
   Loader2,
-  Trash2
+  Trash2,
+  Receipt
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -253,13 +254,14 @@ export default function MainLayout() {
 
   const navigationGroups = [
     {
-      title: 'CORE',
+      title: 'CORE & INVOICES',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Tagihan Invoice Masuk', path: '/invoices', icon: Receipt },
       ],
     },
     {
-      title: 'SERVICES & TAGIHAN',
+      title: 'SERVICES & SUBSCRIPTIONS',
       items: [
         { name: 'Tagihan Internet & FO', path: '/services/internet', icon: Globe },
         { name: 'Tagihan Hosting & Cloud', path: '/services/hosting', icon: Cloud },
@@ -268,7 +270,7 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'PAYMENTS',
+      title: 'JADWAL PEMBAYARAN',
       items: [
         { name: 'Upcoming Schedules', path: '/payments?tab=ALL', icon: Clock },
         { name: 'Due Soon (7 Days)', path: '/payments?tab=DUE_SOON', icon: Calendar },

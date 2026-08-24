@@ -7,6 +7,7 @@ import MainLayout from './layouts/MainLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PaymentMonitoringPage from './pages/PaymentMonitoringPage';
+import VendorInvoicesPage from './pages/VendorInvoicesPage';
 import ServicesPage from './pages/ServicesPage';
 import MasterDataPage from './pages/MasterDataPage';
 import ReportsPage from './pages/ReportsPage';
@@ -43,6 +44,7 @@ export default function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="invoices" element={<VendorInvoicesPage />} />
           <Route path="payments" element={<PaymentMonitoringPage />} />
           
           {/* Services Category Routes */}
