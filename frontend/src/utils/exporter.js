@@ -150,3 +150,89 @@ export function downloadImportTemplate(format = 'xlsx') {
     exportToCSV(templateRows, null, 'Template_Import_Services_FO');
   }
 }
+
+/**
+ * Download ready-to-fill Provider / Vendor Import Template (.xlsx or .csv)
+ */
+export function downloadProviderTemplate(format = 'xlsx') {
+  const templateRows = [
+    {
+      'Provider Code': 'PROV-BIZNET',
+      'Provider Name': 'PT Midplaza Prima (Biznet Networks)',
+      'Contact Person': 'Enterprise Account Manager',
+      'Email': 'billing@biznetnetworks.com',
+      'Phone': '021-57998888',
+      'Address': 'MidPlaza 2 Bldg, 8th Fl, Jl. Jend. Sudirman Kav 10-11, Jakarta',
+      'Status': 'ACTIVE',
+    },
+    {
+      'Provider Code': 'PROV-TELKOM',
+      'Provider Name': 'PT Telkom Indonesia (Persero) Tbk',
+      'Contact Person': 'Corporate Customer Care',
+      'Email': 'corporate@telkom.co.id',
+      'Phone': '1500250',
+      'Address': 'Telkom Landmark Tower, Jl. Gatot Subroto, Jakarta Selatan',
+      'Status': 'ACTIVE',
+    },
+    {
+      'Provider Code': 'PROV-IFORTE',
+      'Provider Name': 'PT iForte Solusi Infotek',
+      'Contact Person': 'Finance & Billing Support',
+      'Email': 'billing@iforte.co.id',
+      'Phone': '021-23586300',
+      'Address': 'Menara BCA Lt. 39, Grand Indonesia, Jakarta Pusat',
+      'Status': 'ACTIVE',
+    },
+    {
+      'Provider Code': '# PETUNJUK PENGISIAN (Baris ini tidak akan diimpor):',
+      'Provider Name': 'Nama lengkap vendor / provider (Wajib)',
+      'Contact Person': 'Nama PIC / Divisi Kontak',
+      'Email': 'Email penagihan / invoice vendor',
+      'Phone': 'Nomor telepon / call center vendor',
+      'Address': 'Alamat kantor vendor',
+      'Status': 'ACTIVE atau INACTIVE',
+    }
+  ];
+
+  if (format === 'xlsx') {
+    exportToExcel(templateRows, 'Template_Import_Providers_Vendors');
+  } else {
+    exportToCSV(templateRows, null, 'Template_Import_Providers_Vendors');
+  }
+}
+
+/**
+ * Download ready-to-fill Customer Import Template (.xlsx or .csv)
+ */
+export function downloadCustomerTemplate(format = 'xlsx') {
+  const templateRows = [
+    {
+      'Customer Code': 'CUST-ALFA',
+      'Customer Name': 'PT Sumber Alfaria Trijaya Tbk (Alfamart)',
+      'Contact': 'Operation & IT Infrastructure Support',
+      'Notes': 'Pemegang kontrak tagihan jaringan toko ritel Alfamart',
+      'Status': 'ACTIVE',
+    },
+    {
+      'Customer Code': 'CUST-ARTA',
+      'Customer Name': 'PT Artacom Jaya Nusantara',
+      'Contact': 'Internal Finance Support',
+      'Notes': 'Entitas internal holding & operational company',
+      'Status': 'ACTIVE',
+    },
+    {
+      'Customer Code': '# PETUNJUK PENGISIAN (Baris ini tidak akan diimpor):',
+      'Customer Name': 'Nama resmi perusahaan pelanggan (Wajib)',
+      'Contact': 'Kontak PIC / Divisi',
+      'Notes': 'Catatan tambahan keterangan pelanggan',
+      'Status': 'ACTIVE atau INACTIVE',
+    }
+  ];
+
+  if (format === 'xlsx') {
+    exportToExcel(templateRows, 'Template_Import_Customers');
+  } else {
+    exportToCSV(templateRows, null, 'Template_Import_Customers');
+  }
+}
+
