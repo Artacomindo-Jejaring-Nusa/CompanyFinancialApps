@@ -255,20 +255,59 @@ export default function VendorInvoicesPage() {
       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
       const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
+      // Extract bank admin fee / charge
+      let bkCharge = 0;
+      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+      if (feeMatch) {
+        bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+      } else if (item.attributes?.bank_charge) {
+        bkCharge = parseFloat(item.attributes.bank_charge) || 0;
+      }
+
+      // Check if PPN / Tax breakdown is set
+      let hpp = 0;
+      let tax11 = 0;
+      const totalBaseAmount = item.amount || 0;
+
+      if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+        hpp = parseFloat(item.service.attributes.hpp) || 0;
+        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+      } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
+        hpp = Math.round(totalBaseAmount / 1.11);
+        tax11 = totalBaseAmount - hpp;
+      } else {
+        hpp = totalBaseAmount;
+        tax11 = 0;
+      }
+
+      const totalPayment = totalBaseAmount + bkCharge;
+
+      const storeName = item.service?.service_name || '';
+      const siteCode = item.service?.site_id || item.service?.cid?.split('-')[0] || '-';
+      const dcName = item.service?.attributes?.dc_name || item.service?.site_name || '-';
+      const accountHolder = item.service?.attributes?.account_name || item.service?.customer?.customer_name || '-';
+      const storeAddress = item.service?.location || item.service?.attributes?.address || '-';
+
       return {
-        'No. Invoice Vendor': invMatch ? invMatch[1] : (item.service?.contract_number || '-'),
-        'No. Faktur Pajak': fakturMatch ? fakturMatch[1] : '-',
-        'Vendor / Provider': item.service?.provider?.provider_name || '',
-        'Nama Tagihan': item.service?.service_name || '',
-        'Pelanggan': item.service?.customer?.customer_name || '',
-        'Circuit ID / Link ID': item.service?.cid || '-',
-        'Periode': item.period,
-        'Tanggal Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
-        'Nominal Tagihan (IDR)': formatIDR(item.amount || 0),
-        'Sisa Tagihan (IDR)': formatIDR(item.remaining_amount || 0),
-        'Status Pembayaran': item.status,
-        'Tanggal Pelunasan': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
-        'Catatan / Referensi': item.notes || '-',
+        'Kode': siteCode,
+        'NAMA TOKO': storeName,
+        'DC': dcName,
+        'CID': item.service?.cid || '-',
+        'PROVIDER': item.service?.provider?.provider_name || '',
+        'HPP': formatIDR(hpp),
+        'TAX 11%': tax11 > 0 ? formatIDR(tax11) : 'Rp. 0',
+        'BK CHARGE / VA / XENDIT': bkCharge > 0 ? formatIDR(bkCharge) : 'Rp. 0',
+        'PAYMENT': formatIDR(totalPayment),
+        'NAME TOKO': storeName,
+        'A/T NAMA': accountHolder,
+        'ADDRESS': storeAddress,
+        'PERIODE': item.period,
+        'JATUH TEMPO': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
+        'STATUS': item.status,
+        'NO. INVOICE VENDOR': invMatch ? invMatch[1] : (item.service?.contract_number || '-'),
+        'NO. FAKTUR PAJAK': fakturMatch ? fakturMatch[1] : '-',
+        'TANGGAL BAYAR': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
+        'CATATAN / REF': item.notes || '-',
       };
     });
 

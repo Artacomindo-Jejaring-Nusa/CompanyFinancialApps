@@ -629,20 +629,46 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       return;
     }
 
-    const exportRows = services.map((item) => ({
-      'Circuit ID (CID)': item.cid || '-',
-      'Nama Layanan / Toko': item.service_name || '',
-      'Tipe Service': item.service_type?.name || '',
-      'Provider': item.provider?.provider_name || '',
-      'Pelanggan': item.customer?.customer_name || '',
-      'Site ID': item.site_id || '-',
-      'Distribution Center (DC)': item.attributes?.dc_name || item.site_name || '-',
-      'Lokasi / Alamat': item.location || '-',
-      'Siklus Tagihan': item.billing_cycle || 'MONTHLY',
-      'Tgl Jatuh Tempo': item.due_day || 25,
-      'Biaya Bulanan (IDR)': formatIDR(item.amount || 0),
-      'Status': item.status,
-    }));
+    const exportRows = services.map((item) => {
+      let hpp = 0;
+      let tax11 = 0;
+      const totalBaseAmount = item.amount || 0;
+
+      if (item.attributes?.hpp !== undefined && item.attributes?.hpp !== null) {
+        hpp = parseFloat(item.attributes.hpp) || 0;
+        tax11 = parseFloat(item.attributes.tax) || (totalBaseAmount - hpp);
+      } else if (item.attributes?.include_ppn) {
+        hpp = Math.round(totalBaseAmount / 1.11);
+        tax11 = totalBaseAmount - hpp;
+      } else {
+        hpp = totalBaseAmount;
+        tax11 = 0;
+      }
+
+      const storeName = item.service_name || '';
+      const siteCode = item.site_id || item.cid?.split('-')[0] || '-';
+      const dcName = item.attributes?.dc_name || item.site_name || '-';
+      const accountHolder = item.attributes?.account_name || item.customer?.customer_name || '-';
+      const storeAddress = item.location || item.attributes?.address || '-';
+
+      return {
+        'Kode': siteCode,
+        'NAMA TOKO': storeName,
+        'DC': dcName,
+        'CID': item.cid || '-',
+        'PROVIDER': item.provider?.provider_name || '',
+        'HPP': formatIDR(hpp),
+        'TAX 11%': tax11 > 0 ? formatIDR(tax11) : 'Rp. 0',
+        'BK CHARGE / VA / XENDIT': item.attributes?.bank_charge ? formatIDR(item.attributes.bank_charge) : 'Rp. 0',
+        'PAYMENT': formatIDR(totalBaseAmount + (parseFloat(item.attributes?.bank_charge) || 0)),
+        'NAME TOKO': storeName,
+        'A/T NAMA': accountHolder,
+        'ADDRESS': storeAddress,
+        'Tgl Jatuh Tempo': item.due_day || 25,
+        'Siklus Tagihan': item.billing_cycle || 'MONTHLY',
+        'Status': item.status,
+      };
+    });
 
     exportToExcel(exportRows, `Export_Layanan_${categoryFilter}`);
   };

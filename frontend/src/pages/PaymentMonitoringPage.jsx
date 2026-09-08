@@ -216,28 +216,66 @@ export default function PaymentMonitoringPage() {
       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
       const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
+      // Extract bank admin fee / charge if recorded in notes or attributes
+      let bkCharge = 0;
+      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+      if (feeMatch) {
+        bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+      } else if (item.attributes?.bank_charge) {
+        bkCharge = parseFloat(item.attributes.bank_charge) || 0;
+      }
+
+      // Check if PPN / Tax breakdown is set in service attributes or service notes
+      let hpp = 0;
+      let tax11 = 0;
+      const totalBaseAmount = item.amount || 0;
+
+      if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+        hpp = parseFloat(item.service.attributes.hpp) || 0;
+        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+      } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
+        hpp = Math.round(totalBaseAmount / 1.11);
+        tax11 = totalBaseAmount - hpp;
+      } else {
+        hpp = totalBaseAmount;
+        tax11 = 0;
+      }
+
+      const totalPayment = totalBaseAmount + bkCharge;
+
+      const storeName = item.service?.service_name || '';
+      const siteCode = item.service?.site_id || item.service?.cid?.split('-')[0] || '-';
+      const dcName = item.service?.attributes?.dc_name || item.service?.site_name || '-';
+      const accountHolder = item.service?.attributes?.account_name || item.service?.customer?.customer_name || '-';
+      const storeAddress = item.service?.location || item.service?.attributes?.address || '-';
+
       return {
-        'Periode Tagihan': item.period,
-        'Nama Layanan / Tagihan': item.service?.service_name || '',
-        'Vendor / Provider': item.service?.provider?.provider_name || '',
-        'No. Invoice Vendor': invMatch ? invMatch[1] : (item.service?.contract_number || '-'),
-        'No. Faktur Pajak': fakturMatch ? fakturMatch[1] : '-',
-        'Pelanggan': item.service?.customer?.customer_name || '',
-        'Circuit ID / Site': item.service?.cid || item.service?.site_id || '-',
-        'Site / Lokasi': item.service?.site_name || item.service?.location || '-',
-        'Tanggal Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
-        'Nominal Tagihan (IDR)': formatIDR(item.amount || 0),
-        'Sisa Tagihan (IDR)': formatIDR(item.remaining_amount || 0),
-        'Status Pembayaran': item.status,
-        'Tanggal Bayar': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
-        'No Referensi Bayar': item.notes || '-',
+        'Kode': siteCode,
+        'NAMA TOKO': storeName,
+        'DC': dcName,
+        'CID': item.service?.cid || '-',
+        'PROVIDER': item.service?.provider?.provider_name || '',
+        'HPP': formatIDR(hpp),
+        'TAX 11%': tax11 > 0 ? formatIDR(tax11) : 'Rp. 0',
+        'BK CHARGE / VA / XENDIT': bkCharge > 0 ? formatIDR(bkCharge) : 'Rp. 0',
+        'PAYMENT': formatIDR(totalPayment),
+        'NAME TOKO': storeName,
+        'A/T NAMA': accountHolder,
+        'ADDRESS': storeAddress,
+        'PERIODE': item.period,
+        'JATUH TEMPO': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
+        'STATUS': item.status,
+        'NO. INVOICE VENDOR': invMatch ? invMatch[1] : (item.service?.contract_number || '-'),
+        'NO. FAKTUR PAJAK': fakturMatch ? fakturMatch[1] : '-',
+        'TANGGAL BAYAR': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
+        'CATATAN / REF': item.notes || '-',
       };
     });
 
     const activeProviderName = providers.find((p) => String(p.id) === String(providerFilter))?.provider_name;
     const filename = activeProviderName 
-      ? `Rekap_Invoice_${getShortVendorName(activeProviderName)}_${currentTab}`
-      : `Rekap_Invoice_Semua_Vendor_${currentTab}`;
+      ? `Rekap_Pembayaran_${getShortVendorName(activeProviderName)}_${currentTab}`
+      : `Rekap_Pembayaran_Semua_Vendor_${currentTab}`;
 
     exportToExcel(exportRows, filename);
   };
