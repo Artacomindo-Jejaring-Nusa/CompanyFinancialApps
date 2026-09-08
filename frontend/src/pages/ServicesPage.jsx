@@ -614,11 +614,11 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
   };
 
   const formatIDR = (val) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    if (val === null || val === undefined || val === '') return 'Rp. 0';
+    const num = typeof val === 'number' ? val : (parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0);
+    return 'Rp. ' + new Intl.NumberFormat('id-ID', {
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(num);
   };
 
   const totalPages = Math.ceil(total / limit) || 1;
@@ -640,7 +640,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       'Lokasi / Alamat': item.location || '-',
       'Siklus Tagihan': item.billing_cycle || 'MONTHLY',
       'Tgl Jatuh Tempo': item.due_day || 25,
-      'Biaya Bulanan (IDR)': item.amount || 0,
+      'Biaya Bulanan (IDR)': formatIDR(item.amount || 0),
       'Status': item.status,
     }));
 

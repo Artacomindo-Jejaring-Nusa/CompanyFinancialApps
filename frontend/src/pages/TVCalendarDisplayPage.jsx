@@ -146,11 +146,11 @@ export default function TVCalendarDisplayPage() {
   };
 
   const formatIDR = (val) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    if (val === null || val === undefined || val === '') return 'Rp. 0';
+    const num = typeof val === 'number' ? val : (parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0);
+    return 'Rp. ' + new Intl.NumberFormat('id-ID', {
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(num);
   };
 
   const getShortVendorName = (name) => {

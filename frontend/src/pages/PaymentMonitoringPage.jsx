@@ -185,11 +185,11 @@ export default function PaymentMonitoringPage() {
   };
 
   const formatIDR = (val) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    if (val === null || val === undefined || val === '') return 'Rp. 0';
+    const num = typeof val === 'number' ? val : (parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0);
+    return 'Rp. ' + new Intl.NumberFormat('id-ID', {
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(num);
   };
 
   const getShortVendorName = (name) => {
@@ -226,8 +226,8 @@ export default function PaymentMonitoringPage() {
         'Circuit ID / Site': item.service?.cid || item.service?.site_id || '-',
         'Site / Lokasi': item.service?.site_name || item.service?.location || '-',
         'Tanggal Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
-        'Nominal Tagihan (IDR)': item.amount || 0,
-        'Sisa Tagihan (IDR)': item.remaining_amount || 0,
+        'Nominal Tagihan (IDR)': formatIDR(item.amount || 0),
+        'Sisa Tagihan (IDR)': formatIDR(item.remaining_amount || 0),
         'Status Pembayaran': item.status,
         'Tanggal Bayar': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
         'No Referensi Bayar': item.notes || '-',

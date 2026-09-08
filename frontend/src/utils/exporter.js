@@ -1,7 +1,21 @@
 import * as XLSX from 'xlsx';
 
 /**
- * Export data array to genuine Microsoft Excel (.xlsx) file
+ * Format any number into standard Indonesian Rupiah format: "Rp. 12.000.000"
+ * @param {number|string} val 
+ * @returns {string} e.g. "Rp. 12.000.000"
+ */
+export function formatRupiah(val) {
+  if (val === null || val === undefined || val === '') return 'Rp. 0';
+  if (typeof val === 'string' && val.trim().startsWith('Rp.')) return val;
+  const num = typeof val === 'number' ? val : (parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0);
+  return 'Rp. ' + new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
+/**
+ * Export data array to genuine Microsoft Excel (.xlsx) file with Rupiah formatting
  * @param {Array<Object>} rows Array of objects
  * @param {string} filename Output filename without extension
  */
@@ -11,19 +25,34 @@ export function exportToExcel(rows, filename = 'export_report') {
     return;
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  // Ensure all monetary fields are formatted as "Rp. X.XXX.XXX"
+  const formattedRows = rows.map(row => {
+    const newRow = {};
+    Object.keys(row).forEach(key => {
+      let val = row[key];
+      const isPriceColumn = /IDR|Nominal|Biaya|Sisa|Tarif|Harga|Amount|Tagihan|Total/i.test(key);
+      if (isPriceColumn && (typeof val === 'number' || (typeof val === 'string' && !isNaN(val) && val.trim() !== ''))) {
+        newRow[key] = formatRupiah(val);
+      } else {
+        newRow[key] = val;
+      }
+    });
+    return newRow;
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(formattedRows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan');
 
   // Auto-width for columns
   const max_widths = [];
-  rows.forEach(row => {
+  formattedRows.forEach(row => {
     Object.keys(row).forEach((key, colIdx) => {
       const valStr = String(row[key] || '');
       max_widths[colIdx] = Math.max(max_widths[colIdx] || key.length, valStr.length);
     });
   });
-  worksheet['!cols'] = max_widths.map(w => ({ wch: Math.min(w + 3, 50) }));
+  worksheet['!cols'] = max_widths.map(w => ({ wch: Math.min(w + 4, 50) }));
 
   XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
@@ -37,12 +66,27 @@ export function exportToCSV(rows, headers, filename = 'export_report') {
     return;
   }
 
-  const headerKeys = Object.keys(rows[0]);
+  // Ensure all monetary fields are formatted as "Rp. X.XXX.XXX"
+  const formattedRows = rows.map(row => {
+    const newRow = {};
+    Object.keys(row).forEach(key => {
+      let val = row[key];
+      const isPriceColumn = /IDR|Nominal|Biaya|Sisa|Tarif|Harga|Amount|Tagihan|Total/i.test(key);
+      if (isPriceColumn && (typeof val === 'number' || (typeof val === 'string' && !isNaN(val) && val.trim() !== ''))) {
+        newRow[key] = formatRupiah(val);
+      } else {
+        newRow[key] = val;
+      }
+    });
+    return newRow;
+  });
+
+  const headerKeys = Object.keys(formattedRows[0]);
   const headerLabels = headers && headers.length === headerKeys.length ? headers : headerKeys;
 
   let csvContent = headerLabels.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\n';
 
-  rows.forEach(row => {
+  formattedRows.forEach(row => {
     const rowValues = headerKeys.map(key => {
       let val = row[key];
       if (val === null || val === undefined) val = '';

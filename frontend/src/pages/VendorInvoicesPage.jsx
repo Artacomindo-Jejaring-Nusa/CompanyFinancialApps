@@ -237,11 +237,11 @@ export default function VendorInvoicesPage() {
   };
 
   const formatIDR = (val) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    if (val === null || val === undefined || val === '') return 'Rp. 0';
+    const num = typeof val === 'number' ? val : (parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0);
+    return 'Rp. ' + new Intl.NumberFormat('id-ID', {
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(num);
   };
 
   const handleExportInvoices = () => {
@@ -264,8 +264,8 @@ export default function VendorInvoicesPage() {
         'Circuit ID / Link ID': item.service?.cid || '-',
         'Periode': item.period,
         'Tanggal Jatuh Tempo': item.due_date ? new Date(item.due_date).toLocaleDateString('id-ID') : '',
-        'Nominal Tagihan (IDR)': item.amount || 0,
-        'Sisa Tagihan (IDR)': item.remaining_amount || 0,
+        'Nominal Tagihan (IDR)': formatIDR(item.amount || 0),
+        'Sisa Tagihan (IDR)': formatIDR(item.remaining_amount || 0),
         'Status Pembayaran': item.status,
         'Tanggal Pelunasan': item.payment_date ? new Date(item.payment_date).toLocaleDateString('id-ID') : '-',
         'Catatan / Referensi': item.notes || '-',
