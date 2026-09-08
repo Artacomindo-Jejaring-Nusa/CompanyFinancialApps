@@ -339,6 +339,45 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     });
   };
 
+  const handleHppChange = (val) => {
+    const numHpp = parseFloat(val) || 0;
+    const numTax = Math.round(numHpp * 0.11);
+    const total = numHpp + numTax;
+    setFormData((prev) => ({
+      ...prev,
+      amount: total,
+      attributes: {
+        ...prev.attributes,
+        hpp: numHpp,
+        tax: numTax,
+      },
+    }));
+  };
+
+  const handleTaxChange = (val) => {
+    const numTax = parseFloat(val) || 0;
+    const numHpp = parseFloat(formData.attributes?.hpp) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      amount: numHpp + numTax,
+      attributes: {
+        ...prev.attributes,
+        tax: numTax,
+      },
+    }));
+  };
+
+  const handleBankChargeChange = (val) => {
+    const numCharge = parseFloat(val) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      attributes: {
+        ...prev.attributes,
+        bank_charge: numCharge,
+      },
+    }));
+  };
+
   const openCreateModal = () => {
     setEditingItem(null);
     const targetCategory = categoryFilter === 'ALL' ? 'INTERNET' : categoryFilter;
@@ -365,12 +404,16 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       contract_number: '',
       billing_cycle: targetCategory === 'HOSTING' || targetCategory === 'SOFTWARE' ? 'YEARLY' : 'MONTHLY',
       due_day: 25,
-      amount: '',
+      amount: 7500000,
       start_date: new Date().toISOString().split('T')[0],
       pic: '',
       notes: '',
       status: 'ACTIVE',
-      attributes: {},
+      attributes: {
+        hpp: 6756757,
+        tax: 743243,
+        bank_charge: 6500,
+      },
     });
     setSelectedTypeSchema([]);
     setModalOpen(true);
@@ -380,6 +423,22 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     setEditingItem(item);
     const cat = getServiceCategory(item);
     setFormCategory(cat);
+
+    let itemHpp = item.attributes?.hpp;
+    let itemTax = item.attributes?.tax;
+    let itemCharge = item.attributes?.bank_charge || 0;
+    const baseAmount = item.amount || 0;
+
+    if (itemHpp === undefined || itemHpp === null) {
+      if (item.attributes?.include_ppn || /ppn|tax/i.test(item.service_name)) {
+        itemHpp = Math.round(baseAmount / 1.11);
+        itemTax = baseAmount - itemHpp;
+      } else {
+        itemHpp = baseAmount;
+        itemTax = 0;
+      }
+    }
+
     setFormData({
       service_name: item.service_name || '',
       service_type_id: item.service_type_id || '',
@@ -397,7 +456,12 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       pic: item.pic || '',
       notes: item.notes || '',
       status: item.status || 'ACTIVE',
-      attributes: item.attributes || {},
+      attributes: {
+        ...item.attributes,
+        hpp: itemHpp,
+        tax: itemTax,
+        bank_charge: itemCharge,
+      },
     });
 
     const st = serviceTypes.find((st) => st.id === item.service_type_id);
@@ -553,8 +617,29 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       const providerNameInput = String(row['Provider'] || row['provider_name'] || 'Biznet Networks').trim();
       const dcName = String(row['Distribution Center (DC)'] || row['dc_name'] || 'DC Balaraja').trim();
       const location = String(row['Lokasi Toko / Alamat'] || row['location'] || row['Alamat'] || '').trim();
-      const amountVal = parseFloat(String(row['Biaya FO Bulanan (IDR)'] || row['amount'] || '7500000').replace(/[^0-9.]/g, '')) || 7500000;
       const dueDayVal = parseInt(String(row['Tgl Jatuh Tempo (1-31)'] || row['due_day'] || '25').replace(/[^0-9]/g, '')) || 25;
+      const cycle = String(row['Siklus Penagihan'] || row['billing_cycle'] || 'MONTHLY').trim().toUpperCase();
+      const accountName = String(row['Nama Pemilik Rekening'] || row['A/T NAMA'] || row['account_name'] || '').trim();
+
+      // Parse financial breakdown
+      const rawHpp = row['HPP / Tarif Dasar (IDR)'] || row['HPP'] || row['hpp'] || '';
+      const rawTax = row['PPN 11% (IDR)'] || row['PPN 11%'] || row['PPN'] || row['tax'] || '';
+      const rawCharge = row['Biaya Charge / Admin Bank (IDR)'] || row['Biaya Charge'] || row['Admin Fee'] || row['bank_charge'] || '';
+      const rawTotal = row['Total Pembayaran (IDR)'] || row['Total Pembayaran'] || row['Biaya FO Bulanan (IDR)'] || row['amount'] || '';
+
+      let parsedHpp = parseFloat(String(rawHpp).replace(/[^0-9.]/g, '')) || 0;
+      let parsedTax = parseFloat(String(rawTax).replace(/[^0-9.]/g, '')) || 0;
+      let parsedCharge = parseFloat(String(rawCharge).replace(/[^0-9.]/g, '')) || 0;
+      let parsedTotal = parseFloat(String(rawTotal).replace(/[^0-9.]/g, '')) || 0;
+
+      if (parsedHpp > 0 && parsedTax === 0) {
+        parsedTax = Math.round(parsedHpp * 0.11);
+      }
+      if (parsedHpp === 0 && parsedTotal > 0) {
+        parsedHpp = Math.round(parsedTotal / 1.11);
+        parsedTax = parsedTotal - parsedHpp;
+      }
+      const effectiveAmount = (parsedHpp + parsedTax) > 0 ? (parsedHpp + parsedTax) : (parsedTotal || 7500000);
 
       let providerObj = latestProv.find((p) => p.provider_name.toLowerCase().includes(providerNameInput.toLowerCase()));
       let providerId = providerObj ? providerObj.id : (latestProv[0]?.id || 1);
@@ -586,12 +671,18 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         site_name: dcName,
         location: location,
         contract_number: `CTR-IMP-${Date.now()}-${i}`,
-        billing_cycle: 'MONTHLY',
+        billing_cycle: ['MONTHLY', 'QUARTERLY', 'YEARLY', 'SEMI_ANNUAL'].includes(cycle) ? cycle : 'MONTHLY',
         due_day: dueDayVal,
-        amount: amountVal,
+        amount: effectiveAmount,
         start_date: new Date().toISOString(),
         status: 'ACTIVE',
-        attributes: { dc_name: dcName },
+        attributes: { 
+          dc_name: dcName,
+          hpp: parsedHpp,
+          tax: parsedTax,
+          bank_charge: parsedCharge,
+          account_name: accountName
+        },
       };
 
       try {
@@ -877,50 +968,46 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                 {categoryFilter === 'INTERNET' && (
                   <thead className="bg-slate-50 text-slate-700 font-semibold text-[12px] uppercase tracking-wider border-b border-slate-200 select-none">
                     <tr>
-                      <th onClick={() => handleSort('cid')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th onClick={() => handleSort('cid')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center gap-1">
-                          <span>CID (Circuit ID)</span>
+                          <span>CID</span>
                           {renderSortIcon('cid')}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('service_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th onClick={() => handleSort('service_name')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center gap-1">
-                          <span>Register Name (Nama Toko / Outlet)</span>
+                          <span>Register Name (Toko)</span>
                           {renderSortIcon('service_name')}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('site_id')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th onClick={() => handleSort('site_id')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center gap-1">
-                          <span>Site ID (Alfa/Indo)</span>
+                          <span>Site ID</span>
                           {renderSortIcon('site_id')}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('provider_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th onClick={() => handleSort('provider_name')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center gap-1">
                           <span>Provider FO</span>
                           {renderSortIcon('provider_name')}
                         </div>
                       </th>
-                      <th className="py-3.5 px-4">Distribution Center (DC)</th>
-                      <th onClick={() => handleSort('location')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
-                        <div className="flex items-center gap-1">
-                          <span>Lokasi / Alamat</span>
-                          {renderSortIcon('location')}
-                        </div>
-                      </th>
-                      <th onClick={() => handleSort('amount')} className="py-3.5 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th className="py-3.5 px-3 text-right">HPP (Dasar)</th>
+                      <th className="py-3.5 px-3 text-right">PPN 11%</th>
+                      <th className="py-3.5 px-3 text-right">BK Charge</th>
+                      <th onClick={() => handleSort('amount')} className="py-3.5 px-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center justify-end gap-1">
-                          <span>Biaya FO Bulanan</span>
+                          <span>Total Tagihan</span>
                           {renderSortIcon('amount')}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('status')} className="py-3.5 px-4 text-center cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <th onClick={() => handleSort('status')} className="py-3.5 px-3 text-center cursor-pointer hover:bg-slate-100 transition-colors group">
                         <div className="flex items-center justify-center gap-1">
                           <span>Status</span>
                           {renderSortIcon('status')}
                         </div>
                       </th>
-                      <th className="py-3.5 px-4 text-center">Aksi (CRUD)</th>
+                      <th className="py-3.5 px-3 text-center">Aksi</th>
                     </tr>
                   </thead>
                 )}
@@ -1064,41 +1151,58 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                     services.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* 1. Tailored INTERNET Body Row */}
-                        {categoryFilter === 'INTERNET' && (
-                          <>
-                            <td className="py-3.5 px-4 font-mono font-bold text-[13px] text-slate-900 select-all">
-                              {item.cid || '-'}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-bold text-slate-900 text-[14px] leading-tight flex items-center gap-1.5">
-                                <Store size={14} className="text-blue-600 shrink-0" />
-                                <span>{item.service_name}</span>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                {item.site_id || '-'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-slate-900">
-                              {item.provider?.provider_name}
-                            </td>
-                            <td className="py-3.5 px-4 font-medium text-slate-700">
-                              {item.attributes?.dc_name || item.site_name || 'DC Balaraja'}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 text-xs">
-                              {item.location || '-'}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
-                              {formatIDR(item.amount)}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {item.status}
-                              </span>
-                            </td>
-                          </>
-                        )}
+                        {categoryFilter === 'INTERNET' && (() => {
+                          const hppVal = item.attributes?.hpp !== undefined && item.attributes?.hpp !== null 
+                            ? Number(item.attributes.hpp) 
+                            : Math.round(Number(item.amount || 0) / 1.11);
+                          const taxVal = item.attributes?.tax !== undefined && item.attributes?.tax !== null 
+                            ? Number(item.attributes.tax) 
+                            : (Number(item.amount || 0) - hppVal);
+                          const chargeVal = Number(item.attributes?.bank_charge || 0);
+                          const totalVal = Number(item.amount || 0) + chargeVal;
+
+                          return (
+                            <>
+                              <td className="py-3.5 px-3 font-mono font-bold text-xs text-slate-900 select-all">
+                                {item.cid || '-'}
+                              </td>
+                              <td className="py-3.5 px-3">
+                                <div className="font-bold text-slate-900 text-[13px] leading-tight flex items-center gap-1.5">
+                                  <Store size={13} className="text-blue-600 shrink-0" />
+                                  <span>{item.service_name}</span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                  {item.attributes?.dc_name || item.site_name || 'DC Balaraja'}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-3">
+                                <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  {item.site_id || '-'}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-3 font-semibold text-slate-900 text-xs">
+                                {item.provider?.provider_name}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-mono text-xs font-semibold text-slate-800">
+                                {formatIDR(hppVal)}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-mono text-xs text-amber-700 font-semibold">
+                                {formatIDR(taxVal)}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-mono text-xs text-blue-700 font-semibold">
+                                {chargeVal > 0 ? formatIDR(chargeVal) : '-'}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900 text-xs">
+                                {formatIDR(totalVal)}
+                              </td>
+                              <td className="py-3.5 px-3 text-center">
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {item.status}
+                                </span>
+                              </td>
+                            </>
+                          );
+                        })()}
 
                         {/* 2. HOSTING Body Row */}
                         {categoryFilter === 'HOSTING' && (
@@ -1611,17 +1715,53 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                     />
                   </div>
 
-                  <div>
-                    <label className="font-semibold text-slate-800">Biaya FO Bulanan (IDR) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="7500000"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-blue-600"
-                    />
+                  <div className="sm:col-span-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Rincian Komponen Biaya (HPP + PPN + Admin)</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11% dari HPP</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">HPP / Tarif Dasar *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="e.g. 6756757"
+                          value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
+                          onChange={(e) => handleHppChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">PPN 11% (IDR)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 743243"
+                          value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
+                          onChange={(e) => handleTaxChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">Biaya Admin / Charge</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 6500"
+                          value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
+                          onChange={(e) => handleBankChargeChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-blue-50/70 border border-blue-100 rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold text-blue-900">Total Tagihan (HPP + PPN + Admin):</span>
+                      <span className="font-mono font-bold text-sm text-blue-700">
+                        {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
+                      </span>
+                    </div>
                   </div>
 
                   <div>
@@ -1776,17 +1916,53 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="font-semibold text-slate-800">Biaya Server Sesuai Siklus Tagihan (IDR) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="e.g. 960000 (untuk tagihan tahunan)"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-purple-700 text-sm"
-                    />
+                  <div className="sm:col-span-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Rincian Biaya Hosting / Cloud</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11%</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">HPP / Tarif Dasar *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="e.g. 960000"
+                          value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
+                          onChange={(e) => handleHppChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">PPN 11% (IDR)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 105600"
+                          value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
+                          onChange={(e) => handleTaxChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">Biaya Admin / Charge</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 5000"
+                          value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
+                          onChange={(e) => handleBankChargeChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-purple-50/70 border border-purple-100 rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold text-purple-900">Total Tagihan Server:</span>
+                      <span className="font-mono font-bold text-sm text-purple-700">
+                        {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1894,17 +2070,53 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="font-semibold text-slate-800">Biaya Lisensi Sesuai Siklus (IDR) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="e.g. 15000000 (untuk tagihan tahunan)"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-emerald-700 text-sm"
-                    />
+                  <div className="sm:col-span-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Rincian Biaya Lisensi Software</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11%</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">HPP / Tarif Dasar *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="e.g. 15000000"
+                          value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
+                          onChange={(e) => handleHppChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">PPN 11% (IDR)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 1650000"
+                          value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
+                          onChange={(e) => handleTaxChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">Biaya Admin / Charge</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 6500"
+                          value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
+                          onChange={(e) => handleBankChargeChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-emerald-50/70 border border-emerald-100 rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold text-emerald-900">Total Tagihan Lisensi:</span>
+                      <span className="font-mono font-bold text-sm text-emerald-700">
+                        {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

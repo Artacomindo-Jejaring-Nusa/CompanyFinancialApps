@@ -300,15 +300,39 @@ export default function PaymentMonitoringPage() {
   };
 
   const openPayModal = (item) => {
+    let savedHpp = 0;
+    let savedTax = 0;
+    let savedAdminFee = 0;
     const base = item.remaining_amount || item.amount || 0;
+
+    if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+      savedHpp = parseFloat(item.service.attributes.hpp) || 0;
+      savedTax = parseFloat(item.service.attributes.tax) || (base - savedHpp);
+    } else {
+      savedHpp = Math.round(base / 1.11);
+      savedTax = base - savedHpp;
+    }
+
+    if (item.service?.attributes?.bank_charge) {
+      savedAdminFee = parseFloat(item.service.attributes.bank_charge) || 0;
+    } else {
+      const notes = item.notes || '';
+      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+      if (feeMatch) {
+        savedAdminFee = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+      }
+    }
+
     setPayModalItem(item);
     setBaseAmount(base);
-    setAdminFee(0);
-    setPaymentAmount(base);
+    setAdminFee(savedAdminFee);
+    setPaymentAmount(base + savedAdminFee);
     setPaymentDate(new Date().toISOString().split('T')[0]);
-    setPaymentRef('');
-    setInvoiceNumberInput('');
-    setFakturPajakInput('');
+    setPaymentRef(`TRX-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${item.service?.cid ? String(item.service.cid).replace(/[^a-zA-Z0-9]/g,'') : 'PAY'}`);
+    const invMatch = (item.notes || '').match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
+    setInvoiceNumberInput(invMatch ? invMatch[1] : (item.service?.contract_number || ''));
+    const fakturMatch = (item.notes || '').match(/Faktur:\s*([^\s|,]+)/i);
+    setFakturPajakInput(fakturMatch ? fakturMatch[1] : '');
     setPaymentNotes(item.notes || '');
   };
 
@@ -732,14 +756,16 @@ export default function PaymentMonitoringPage() {
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                       />
                     </th>
-                    <th className="py-3.5 px-4">Periode</th>
-                    <th className="py-3.5 px-4">Vendor / Provider</th>
-                    <th className="py-3.5 px-4">Nama Tagihan / Layanan</th>
-                    <th className="py-3.5 px-4">No. Invoice & Ref</th>
-                    <th className="py-3.5 px-4">Jatuh Tempo</th>
-                    <th className="py-3.5 px-4 text-right">Nominal Tagihan</th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center">Aksi</th>
+                    <th className="py-3.5 px-3">Periode</th>
+                    <th className="py-3.5 px-3">Vendor / Provider</th>
+                    <th className="py-3.5 px-3">Nama Tagihan & CID</th>
+                    <th className="py-3.5 px-3 text-right">HPP (Dasar)</th>
+                    <th className="py-3.5 px-3 text-right">PPN 11%</th>
+                    <th className="py-3.5 px-3 text-right">BK Charge / VA</th>
+                    <th className="py-3.5 px-3 text-right">Total Realisasi</th>
+                    <th className="py-3.5 px-3">Jatuh Tempo</th>
+                    <th className="py-3.5 px-3 text-center">Status</th>
+                    <th className="py-3.5 px-3 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[13px]">
@@ -748,6 +774,33 @@ export default function PaymentMonitoringPage() {
                       const notes = item.notes || '';
                       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
                       const displayInvoiceNum = invMatch ? invMatch[1] : (item.service?.contract_number || '-');
+
+                      // Calculate breakdown
+                      let hpp = 0;
+                      let tax11 = 0;
+                      let bkCharge = 0;
+                      const totalBase = item.remaining_amount || item.amount || 0;
+
+                      if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+                        hpp = parseFloat(item.service.attributes.hpp) || 0;
+                        tax11 = parseFloat(item.service.attributes.tax) || (totalBase - hpp);
+                      } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
+                        hpp = Math.round(totalBase / 1.11);
+                        tax11 = totalBase - hpp;
+                      } else {
+                        hpp = totalBase;
+                        tax11 = 0;
+                      }
+
+                      if (item.service?.attributes?.bank_charge) {
+                        bkCharge = parseFloat(item.service.attributes.bank_charge) || 0;
+                      } else {
+                        const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+                        if (feeMatch) {
+                          bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+                        }
+                      }
+                      const totalPayment = totalBase + (item.status === 'PAID' ? 0 : bkCharge);
 
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
@@ -760,44 +813,54 @@ export default function PaymentMonitoringPage() {
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-600 disabled:opacity-30"
                             />
                           </td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                          <td className="py-3.5 px-3 font-mono font-bold text-slate-800">
                             {item.period}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-3">
                             <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              <Building2 size={14} className="text-blue-600 shrink-0" />
-                              <span>{item.service?.provider?.provider_name || 'Vendor'}</span>
+                              <Building2 size={13} className="text-blue-600 shrink-0" />
+                              <span className="truncate max-w-[140px]">{item.service?.provider?.provider_name || 'Vendor'}</span>
                             </div>
-                            <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                            <div className="text-[11px] text-slate-500 font-normal mt-0.5 truncate max-w-[140px]">
                               {item.service?.customer?.customer_name}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 text-[14px] leading-tight">{item.service?.service_name}</div>
-                            <div className="text-[12px] text-slate-500 font-normal mt-0.5">
-                              {item.service?.site_name || item.service?.location || '-'}
+                          <td className="py-3.5 px-3">
+                            <div className="font-bold text-slate-900 text-xs leading-tight">{item.service?.service_name}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 font-mono">
+                              <span>CID: <strong className="text-slate-700">{item.service?.cid || '-'}</strong></span>
+                              {displayInvoiceNum !== '-' && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-blue-600 font-semibold">{displayInvoiceNum}</span>
+                                </>
+                              )}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-mono font-semibold text-xs text-blue-700 select-all">
-                              {displayInvoiceNum}
-                            </div>
-                            {item.service?.cid && (
-                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                                CID: {item.service.cid}
+                          <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-700 text-xs">
+                            {formatIDR(hpp)}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono font-medium text-slate-600 text-xs">
+                            {tax11 > 0 ? formatIDR(tax11) : 'Rp. 0'}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono font-medium text-amber-700 text-xs">
+                            {bkCharge > 0 ? formatIDR(bkCharge) : 'Rp. 0'}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono font-bold text-blue-700 text-[13px]">
+                            {formatIDR(totalPayment)}
+                          </td>
+                          <td className="py-3.5 px-3 font-medium text-slate-800 whitespace-nowrap text-xs">
+                            {new Date(item.due_date).toLocaleDateString('id-ID')}
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            {getStatusBadge(item.status)}
+                            {item.status === 'PAID' && item.payment_date && (
+                              <div className="text-[10px] text-emerald-700 font-mono mt-1 font-semibold">
+                                Dibayar: {new Date(item.payment_date).toLocaleDateString('id-ID')}
                               </div>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 font-medium text-slate-800 whitespace-nowrap">
-                            {new Date(item.due_date).toLocaleDateString('id-ID')}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
-                            {formatIDR(item.remaining_amount || item.amount)}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            {getStatusBadge(item.status)}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3.5 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => setDetailItem(item)}
@@ -810,12 +873,14 @@ export default function PaymentMonitoringPage() {
                               {item.status !== 'PAID' ? (
                                 <button
                                   onClick={() => openPayModal(item)}
-                                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
+                                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
                                 >
                                   Bayar
                                 </button>
                               ) : (
-                                <span className="text-xs text-emerald-600 font-semibold px-2 py-1 bg-emerald-50 rounded">Lunas</span>
+                                <span className="text-[11px] text-emerald-700 font-bold px-2 py-0.5 bg-emerald-50 rounded-md border border-emerald-200">
+                                  Lunas
+                                </span>
                               )}
                             </div>
                           </td>
@@ -824,7 +889,7 @@ export default function PaymentMonitoringPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-500 font-medium">
+                      <td colSpan={11} className="py-12 text-center text-slate-500 font-medium">
                         Tidak ada tagihan atau invoice masuk ditemukan untuk filter ini.
                       </td>
                     </tr>
@@ -1064,15 +1129,57 @@ export default function PaymentMonitoringPage() {
               </button>
             </div>
 
-            <div className="bg-blue-50/70 p-3 rounded-lg text-xs space-y-1 border border-blue-100">
-              <div className="font-bold text-slate-900 text-[13px]">{payModalItem.service?.service_name}</div>
-              <div className="text-slate-600">
-                Vendor: <span className="font-bold text-blue-700">{payModalItem.service?.provider?.provider_name}</span> | Periode: <span className="font-mono">{payModalItem.period}</span>
-              </div>
-              <div className="text-blue-700 font-bold text-sm pt-0.5">
-                Total Kewajiban: {formatIDR(payModalItem.remaining_amount || payModalItem.amount)}
-              </div>
-            </div>
+            {/* Financial Breakdown Header Card */}
+            {(() => {
+              const base = payModalItem.remaining_amount || payModalItem.amount || 0;
+              let hpp = 0;
+              let tax = 0;
+              if (payModalItem.service?.attributes?.hpp !== undefined && payModalItem.service?.attributes?.hpp !== null) {
+                hpp = parseFloat(payModalItem.service.attributes.hpp) || 0;
+                tax = parseFloat(payModalItem.service.attributes.tax) || (base - hpp);
+              } else {
+                hpp = Math.round(base / 1.11);
+                tax = base - hpp;
+              }
+              const charge = parseFloat(adminFee) || 0;
+              const grandTotal = parseFloat(paymentAmount) || (base + charge);
+
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-bold text-slate-900 text-[13px]">{payModalItem.service?.service_name}</div>
+                      <div className="text-slate-500 mt-0.5">
+                        Vendor: <strong className="text-blue-700">{payModalItem.service?.provider?.provider_name}</strong> • Periode: <strong className="font-mono text-slate-800">{payModalItem.period}</strong>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                      {payModalItem.status}
+                    </span>
+                  </div>
+
+                  {/* 4 Financial Chips */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-1 text-center font-mono">
+                    <div className="bg-white p-1.5 rounded-lg border border-slate-200">
+                      <div className="text-[9px] text-slate-500 uppercase font-sans font-bold">HPP Dasar</div>
+                      <div className="text-slate-800 font-bold text-[11px] mt-0.5">{formatIDR(hpp)}</div>
+                    </div>
+                    <div className="bg-white p-1.5 rounded-lg border border-slate-200">
+                      <div className="text-[9px] text-slate-500 uppercase font-sans font-bold">PPN 11%</div>
+                      <div className="text-slate-700 font-bold text-[11px] mt-0.5">{formatIDR(tax)}</div>
+                    </div>
+                    <div className="bg-white p-1.5 rounded-lg border border-slate-200">
+                      <div className="text-[9px] text-amber-700 uppercase font-sans font-bold">BK Admin</div>
+                      <div className="text-amber-700 font-bold text-[11px] mt-0.5">{formatIDR(charge)}</div>
+                    </div>
+                    <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+                      <div className="text-[9px] text-blue-100 uppercase font-sans font-bold">Total Bayar</div>
+                      <div className="font-black text-[11px] mt-0.5">{formatIDR(grandTotal)}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <form onSubmit={handleSinglePaymentSubmit} className="space-y-3.5 text-xs">
               {/* Payment Date & Method */}
@@ -1084,7 +1191,7 @@ export default function PaymentMonitoringPage() {
                     required
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -1092,7 +1199,7 @@ export default function PaymentMonitoringPage() {
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-800"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-800 text-xs"
                   >
                     <option value="Bank Transfer BCA">Bank Transfer (BCA)</option>
                     <option value="Bank Transfer Mandiri">Bank Transfer (Mandiri)</option>
@@ -1108,7 +1215,7 @@ export default function PaymentMonitoringPage() {
               {/* Dynamic Payment Amount & Admin Fee Box */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800">Rincian Nominal Transfer:</span>
+                  <span className="font-bold text-slate-800">Penyesuaian Nominal Transfer:</span>
                   <span className="text-[11px] text-slate-500 font-medium">Bisa disesuaikan mandiri (opsional)</span>
                 </div>
 
@@ -1215,20 +1322,6 @@ export default function PaymentMonitoringPage() {
                 />
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-800">Metode Pembayaran</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-semibold"
-                >
-                  <option value="Bank Transfer">Bank Transfer (BCA / Mandiri / BNI)</option>
-                  <option value="Virtual Account">Virtual Account</option>
-                  <option value="Corporate Credit Card">Corporate Credit Card</option>
-                  <option value="Cheque / Giro">Cheque / Giro</option>
-                </select>
-              </div>
-
               <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -1240,9 +1333,10 @@ export default function PaymentMonitoringPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
+                  className="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-xs flex items-center gap-1.5"
                 >
-                  {submitting ? 'Menyimpan...' : 'Konfirmasi Pelunasan'}
+                  <CheckCircle2 size={16} />
+                  <span>{submitting ? 'Menyimpan...' : 'Konfirmasi Pelunasan'}</span>
                 </button>
               </div>
             </form>

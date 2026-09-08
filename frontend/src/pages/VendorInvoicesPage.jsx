@@ -414,13 +414,31 @@ export default function VendorInvoicesPage() {
   const openPayModal = (item) => {
     const base = item.remaining_amount || item.amount || 0;
     setPayModalItem(item);
+
+    const savedHpp = item.service?.attributes?.hpp !== undefined 
+      ? Number(item.service.attributes.hpp) 
+      : Math.round(Number(base) / 1.11);
+    const savedTax = item.service?.attributes?.tax !== undefined 
+      ? Number(item.service.attributes.tax) 
+      : (Number(base) - savedHpp);
+    const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
+      ? Number(item.service.attributes.bank_charge) 
+      : 0;
+
+    const notes = item.notes || '';
+    const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
+    const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
+
     setBaseAmount(base);
-    setAdminFee(0);
-    setPaymentAmount(base);
+    setAdminFee(savedAdminFee);
+    setPaymentAmount(Number(base) + savedAdminFee);
     setPaymentDate(new Date().toISOString().split('T')[0]);
-    setPaymentRef('');
-    setInvoiceNumberInput('');
-    setFakturPajakInput('');
+    
+    // Auto-generate formal ref code
+    const autoRef = `TRX-${(item.service?.provider?.provider_name || 'VND').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+    setPaymentRef(autoRef);
+    setInvoiceNumberInput(invMatch ? invMatch[1] : (item.service?.contract_number || ''));
+    setFakturPajakInput(fakturMatch ? fakturMatch[1] : '');
     setPaymentNotes(item.notes || '');
   };
 
@@ -759,7 +777,7 @@ export default function VendorInvoicesPage() {
               <table className="w-full text-left border-collapse text-[13px]">
                 <thead className="bg-slate-50 text-slate-700 font-semibold text-[12px] uppercase tracking-wider border-b border-slate-200 select-none">
                   <tr>
-                    <th className="py-3.5 px-4 w-10">
+                    <th className="py-3.5 px-3 w-10">
                       <input
                         type="checkbox"
                         onChange={handleSelectAll}
@@ -770,34 +788,36 @@ export default function VendorInvoicesPage() {
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                       />
                     </th>
-                    <th className="py-3.5 px-4">No. Invoice Vendor</th>
-                    <th onClick={() => handleSort('provider_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                    <th onClick={() => handleSort('provider_name')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                       <div className="flex items-center gap-1">
                         <span>Vendor / Provider</span>
                         {renderSortIcon('provider_name')}
                       </div>
                     </th>
-                    <th onClick={() => handleSort('service_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                    <th onClick={() => handleSort('service_name')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                       <div className="flex items-center gap-1">
-                        <span>Peruntukan Tagihan</span>
+                        <span>Peruntukan Tagihan & CID</span>
                         {renderSortIcon('service_name')}
                       </div>
                     </th>
-                    <th className="py-3.5 px-4">Periode</th>
-                    <th onClick={() => handleSort('due_date')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                    <th className="py-3.5 px-3">Periode</th>
+                    <th className="py-3.5 px-3 text-right">HPP (Dasar)</th>
+                    <th className="py-3.5 px-3 text-right">PPN 11%</th>
+                    <th className="py-3.5 px-3 text-right">BK Charge</th>
+                    <th onClick={() => handleSort('amount')} className="py-3.5 px-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group">
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Total Realisasi</span>
+                        {renderSortIcon('amount')}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('due_date')} className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 transition-colors group">
                       <div className="flex items-center gap-1">
                         <span>Jatuh Tempo</span>
                         {renderSortIcon('due_date')}
                       </div>
                     </th>
-                    <th onClick={() => handleSort('amount')} className="py-3.5 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors group">
-                      <div className="flex items-center justify-end gap-1">
-                        <span>Nominal Tagihan</span>
-                        {renderSortIcon('amount')}
-                      </div>
-                    </th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center">Aksi</th>
+                    <th className="py-3.5 px-3 text-center">Status</th>
+                    <th className="py-3.5 px-3 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -807,9 +827,36 @@ export default function VendorInvoicesPage() {
                       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
                       const displayInvoiceNum = invMatch ? invMatch[1] : (item.service?.contract_number || '-');
 
+                      // Extract bank admin fee / charge
+                      let bkCharge = 0;
+                      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+                      if (feeMatch) {
+                        bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+                      } else if (item.service?.attributes?.bank_charge) {
+                        bkCharge = parseFloat(item.service.attributes.bank_charge) || 0;
+                      }
+
+                      // Check if PPN / Tax breakdown is set
+                      let hpp = 0;
+                      let tax11 = 0;
+                      const totalBaseAmount = item.remaining_amount || item.amount || 0;
+
+                      if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+                        hpp = parseFloat(item.service.attributes.hpp) || 0;
+                        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+                      } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
+                        hpp = Math.round(totalBaseAmount / 1.11);
+                        tax11 = totalBaseAmount - hpp;
+                      } else {
+                        hpp = totalBaseAmount;
+                        tax11 = 0;
+                      }
+
+                      const totalPayment = totalBaseAmount + (item.status === 'PAID' ? bkCharge : (item.service?.attributes?.bank_charge || 0));
+
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-3">
                             <input
                               type="checkbox"
                               disabled={item.status === 'PAID'}
@@ -818,55 +865,77 @@ export default function VendorInvoicesPage() {
                               className="rounded border-slate-300 text-blue-600 focus:ring-blue-600 disabled:opacity-30"
                             />
                           </td>
-                          <td className="py-3.5 px-4 font-mono font-bold text-blue-700 text-xs select-all">
-                            {displayInvoiceNum}
-                          </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-3">
                             <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              <Building2 size={14} className="text-blue-600 shrink-0" />
+                              <Building2 size={13} className="text-blue-600 shrink-0" />
                               <span>{item.service?.provider?.provider_name || 'Vendor'}</span>
                             </div>
-                            <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                              {item.service?.customer?.customer_name}
+                            <div className="font-mono text-[11px] font-bold text-blue-700 mt-0.5 select-all">
+                              Inv: {displayInvoiceNum}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 text-[14px] leading-tight">{item.service?.service_name}</div>
-                            <div className="text-[12px] text-slate-500 font-normal mt-0.5">
-                              {item.service?.site_name || item.service?.location || '-'}
+                          <td className="py-3.5 px-3">
+                            <div className="font-bold text-slate-900 text-[13px] leading-tight">{item.service?.service_name}</div>
+                            <div className="text-[11px] text-slate-500 font-normal mt-0.5 flex items-center gap-1 font-mono">
+                              <span>CID: {item.service?.cid || '-'}</span>
+                              {item.service?.site_id && (
+                                <span className="text-blue-700 font-bold bg-blue-50 px-1 rounded">({item.service.site_id})</span>
+                              )}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 text-xs">
+                          <td className="py-3.5 px-3 font-mono font-semibold text-slate-700 text-xs">
                             {item.period}
                           </td>
-                          <td className="py-3.5 px-4 font-medium text-slate-800 whitespace-nowrap">
+                          <td className="py-3.5 px-3 text-right font-mono text-xs font-semibold text-slate-800">
+                            {formatIDR(hpp)}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono text-xs text-amber-700 font-semibold">
+                            {formatIDR(tax11)}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono text-xs text-blue-700 font-semibold">
+                            {bkCharge > 0 || item.service?.attributes?.bank_charge ? formatIDR(bkCharge || item.service?.attributes?.bank_charge) : '-'}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900 text-xs">
+                            {formatIDR(totalPayment)}
+                          </td>
+                          <td className="py-3.5 px-3 font-medium text-slate-800 whitespace-nowrap text-xs">
                             {new Date(item.due_date).toLocaleDateString('id-ID')}
                           </td>
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
-                            {formatIDR(item.remaining_amount || item.amount)}
+                          <td className="py-3.5 px-3 text-center">
+                            {item.status === 'PAID' ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  LUNAS (PAID)
+                                </span>
+                                {item.payment_date && (
+                                  <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                    Dibayar: {new Date(item.payment_date).toLocaleDateString('id-ID')}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              getStatusBadge(item.status)
+                            )}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
-                            {getStatusBadge(item.status)}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3.5 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => setDetailItem(item)}
                                 className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Lihat Detail Invoice"
                               >
-                                <Eye size={15} />
+                                <Eye size={14} />
                               </button>
 
                               {item.status !== 'PAID' ? (
                                 <button
                                   onClick={() => openPayModal(item)}
-                                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
+                                  className="px-2.5 py-1 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
                                 >
                                   Bayar
                                 </button>
                               ) : (
-                                <span className="text-xs text-emerald-600 font-semibold px-2 py-1 bg-emerald-50 rounded">Lunas</span>
+                                <span className="text-xs text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-50 rounded border border-emerald-100">Lunas</span>
                               )}
                             </div>
                           </td>
@@ -875,7 +944,7 @@ export default function VendorInvoicesPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-500 font-medium">
+                      <td colSpan={11} className="py-12 text-center text-slate-500 font-medium">
                         Tidak ada invoice masuk ditemukan untuk filter ini.
                       </td>
                     </tr>

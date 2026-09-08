@@ -116,38 +116,53 @@ export function downloadImportTemplate(format = 'xlsx') {
       'Circuit ID (CID)': '436651760009988',
       'Nama Toko / Layanan': 'ALFAMART BENDUNGAN HILIR',
       'Site ID': '1K72',
-      'Provider': 'Biznet Networks',
       'Distribution Center (DC)': 'DC Balaraja',
+      'Provider': 'Biznet Networks',
+      'HPP / Tarif Dasar (IDR)': 6756757,
+      'PPN 11% (IDR)': 743243,
+      'Biaya Charge / Admin Bank (IDR)': 6500,
+      'Total Pembayaran (IDR)': 7506500,
+      'Nama Pemilik Rekening': 'PT Sumber Alfaria Trijaya Tbk',
       'Lokasi Toko / Alamat': 'Jl. Bendungan Hilir No. 45, Jakarta Pusat',
-      'Biaya FO Bulanan (IDR)': 7500000,
       'Tgl Jatuh Tempo (1-31)': 25,
+      'Siklus Penagihan': 'MONTHLY',
     },
     {
       'Circuit ID (CID)': '1782909962',
       'Nama Toko / Layanan': 'ALFAMART ALAM SUTERA',
       'Site ID': '1M44',
-      'Provider': 'Oxygen',
       'Distribution Center (DC)': 'DC Cikokol',
+      'Provider': 'Oxygen',
+      'HPP / Tarif Dasar (IDR)': 7657658,
+      'PPN 11% (IDR)': 842342,
+      'Biaya Charge / Admin Bank (IDR)': 2500,
+      'Total Pembayaran (IDR)': 8502500,
+      'Nama Pemilik Rekening': 'PT Sumber Alfaria Trijaya Tbk',
       'Lokasi Toko / Alamat': 'Jl. Alam Sutera Boulevard, Tangerang',
-      'Biaya FO Bulanan (IDR)': 8500000,
       'Tgl Jatuh Tempo (1-31)': 15,
+      'Siklus Penagihan': 'MONTHLY',
     },
     {
       'Circuit ID (CID)': '# PETUNJUK PENGISIAN (Baris ini tidak akan masuk ke database):',
-      'Nama Toko / Layanan': 'Nama toko ritel (Wajib)',
+      'Nama Toko / Layanan': 'Nama toko ritel / sirkuit FO (Wajib)',
       'Site ID': 'ID site lokasi toko (Opsional)',
-      'Provider': 'Sesuai vendor FO (Biznet/Telkom/Oxygen/Astinet)',
       'Distribution Center (DC)': 'Nama induk DC pengelola toko',
+      'Provider': 'Sesuai vendor FO (Biznet/Telkom/Oxygen/Astinet)',
+      'HPP / Tarif Dasar (IDR)': 'Harga pokok dasar tanpa pajak (Contoh: 6756757)',
+      'PPN 11% (IDR)': 'Pajak PPN 11% (Contoh: 743243 atau kosongkan untuk hitung otomatis)',
+      'Biaya Charge / Admin Bank (IDR)': 'Biaya charge admin bank / VA (Contoh: 6500 / 2500 / 500 / 0)',
+      'Total Pembayaran (IDR)': 'Total realisasi bayar = HPP + PPN + Admin (Contoh: 7506500)',
+      'Nama Pemilik Rekening': 'Nama pemegang akun/rekening',
       'Lokasi Toko / Alamat': 'Kota / Alamat lengkap toko',
-      'Biaya FO Bulanan (IDR)': 'Angka tanpa titik/koma (Contoh: 7500000)',
-      'Tgl Jatuh Tempo (1-31)': 'Angka tanggal 1 s/d 31',
+      'Tgl Jatuh Tempo (1-31)': 'Angka tanggal jatuh tempo (1 s/d 31)',
+      'Siklus Penagihan': 'MONTHLY / YEARLY / QUARTERLY',
     }
   ];
 
   if (format === 'xlsx') {
-    exportToExcel(templateRows, 'Template_Import_Services_FO');
+    exportToExcel(templateRows, 'Template_Import_Services_FO_Financial');
   } else {
-    exportToCSV(templateRows, null, 'Template_Import_Services_FO');
+    exportToCSV(templateRows, null, 'Template_Import_Services_FO_Financial');
   }
 }
 
