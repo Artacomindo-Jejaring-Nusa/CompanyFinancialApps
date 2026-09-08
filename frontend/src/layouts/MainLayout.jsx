@@ -30,7 +30,10 @@ import {
   Trash2,
   Receipt,
   Tv,
-  Monitor
+  Monitor,
+  ArrowRight,
+  Store,
+  Loader2
 } from 'lucide-react';
 
 export default function MainLayout() {
