@@ -177,6 +177,7 @@ export default function TVCalendarDisplayPage() {
   const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
   const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const totalWeeks = Math.ceil((adjustedFirstDay + daysInMonth) / 7);
 
   const targetPeriodPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
   
@@ -290,73 +291,73 @@ export default function TVCalendarDisplayPage() {
   return (
     <div 
       ref={containerRef}
-      className="min-h-screen w-full flex flex-col font-sans bg-slate-50 text-slate-800"
+      className="h-screen max-h-screen w-full flex flex-col font-sans bg-slate-50 text-slate-800 overflow-hidden select-none"
     >
       {/* ======================================================== */}
       {/* 1. TOP HEADER & FORMAL CLOCK                             */}
       {/* ======================================================== */}
-      <header className="px-6 py-3 bg-white border-b border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="shrink-0 px-4 py-2 bg-white border-b border-slate-200 shadow-2xs flex flex-row items-center justify-between gap-2">
         {/* Company Brand & Title */}
-        <div className="flex items-center gap-4">
-          <ArtacomLogo className="h-9 w-auto" />
+        <div className="flex items-center gap-3">
+          <ArtacomLogo className="h-7 w-auto" />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-bold text-base text-slate-900 tracking-tight">
+              <h1 className="font-bold text-sm text-slate-900 tracking-tight">
                 Jadwal Tagihan & Jatuh Tempo Pembayaran Vendor
               </h1>
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                 Display Monitor
               </span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-[11px] text-slate-500">
               PT Artacomindo Jejaring Nusa • Rekapitulasi Kewajiban Vendor ({providers.length} Vendor Terdaftar)
             </p>
           </div>
         </div>
 
         {/* Live Digital Clock & Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">
+            <div className="text-base font-bold text-slate-900 tracking-tight leading-tight">
               {timeString || '12:00:00 WIB'}
             </div>
-            <div className="text-xs font-medium text-slate-500">
+            <div className="text-[10px] font-medium text-slate-500 leading-tight">
               {dateString || 'Senin, 24 Agustus 2026'}
             </div>
           </div>
 
-          <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+          <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div 
               title="Auto Refresh Interval"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-100 border border-slate-200 text-slate-600"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-slate-100 border border-slate-200 text-slate-600"
             >
-              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
               <span>Sync {countdown}s</span>
             </div>
 
             <button
               onClick={() => fetchSchedulesData(true)}
-              className="p-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
               title="Refresh Data Sekarang"
             >
-              <RefreshCw size={15} className={loading ? 'animate-spin text-blue-600' : ''} />
+              <RefreshCw size={13} className={loading ? 'animate-spin text-blue-600' : ''} />
             </button>
 
             <button
               onClick={toggleFullscreen}
-              className="p-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+              className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
               title="Mode Layar Penuh (Fullscreen)"
             >
-              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
 
             <Link
               to="/dashboard"
-              className="px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-colors flex items-center gap-1.5"
+              className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-[11px] transition-colors flex items-center gap-1"
             >
-              <ArrowLeft size={14} />
+              <ArrowLeft size={13} />
               <span>Kembali</span>
             </Link>
           </div>
@@ -366,50 +367,47 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 2. FORMAL EXECUTIVE KPI SUMMARY CARDS                    */}
       {/* ======================================================== */}
-      {/* ======================================================== */}
-      {/* 2. FORMAL EXECUTIVE KPI SUMMARY CARDS                    */}
-      {/* ======================================================== */}
-      <section className="px-6 pt-3 pb-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      <section className="shrink-0 px-4 pt-1.5 pb-0.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {/* Due Today */}
-          <div className={`p-3.5 bg-white rounded-lg border shadow-2xs flex items-center justify-between ${
+          <div className={`p-2.5 px-3 bg-white rounded-lg border shadow-2xs flex items-center justify-between ${
             dueTodayItems.length > 0 ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'
           }`}>
             <div>
-              <div className="text-xs font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
-                {dueTodayItems.length > 0 && <span className="h-2 w-2 rounded-full bg-amber-500"></span>}
+              <div className="text-[11px] font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                {dueTodayItems.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>}
                 <span>Jatuh Tempo Hari Ini</span>
               </div>
-              <div className="text-lg md:text-xl font-bold text-amber-900 mt-0.5">
+              <div className="text-base md:text-lg font-bold text-amber-900 mt-0.5 leading-tight">
                 {formatIDR(dueTodayNominal)}
               </div>
-              <div className="text-xs text-amber-700 mt-0.5">
+              <div className="text-[11px] text-amber-700 leading-tight mt-0.5">
                 {dueTodayItems.length} Tagihan Perlu Diproses
               </div>
             </div>
-            <div className="p-2.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
-              <Clock size={20} />
+            <div className="p-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
+              <Clock size={16} />
             </div>
           </div>
 
           {/* Overdue */}
-          <div className={`p-3.5 bg-white rounded-lg border shadow-2xs flex items-center justify-between ${
+          <div className={`p-2.5 px-3 bg-white rounded-lg border shadow-2xs flex items-center justify-between ${
             overdueItems.length > 0 ? 'border-red-300 bg-red-50/30' : 'border-slate-200'
           }`}>
             <div>
-              <div className="text-xs font-semibold text-red-700 uppercase tracking-wide flex items-center gap-1.5">
-                {overdueItems.length > 0 && <span className="h-2 w-2 rounded-full bg-red-500"></span>}
+              <div className="text-[11px] font-semibold text-red-700 uppercase tracking-wide flex items-center gap-1.5">
+                {overdueItems.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>}
                 <span>Lewat Jatuh Tempo (Overdue)</span>
               </div>
-              <div className="text-lg md:text-xl font-bold text-red-700 mt-0.5">
+              <div className="text-base md:text-lg font-bold text-red-700 mt-0.5 leading-tight">
                 {formatIDR(overdueNominal)}
               </div>
-              <div className="text-xs text-red-600 mt-0.5">
+              <div className="text-[11px] text-red-600 leading-tight mt-0.5">
                 {overdueItems.length} Tagihan Belum Dibayar
               </div>
             </div>
-            <div className="p-2.5 bg-red-50 text-red-700 rounded-lg border border-red-100">
-              <AlertTriangle size={20} />
+            <div className="p-2 bg-red-50 text-red-700 rounded-lg border border-red-100">
+              <AlertTriangle size={16} />
             </div>
           </div>
         </div>
@@ -418,33 +416,33 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 3. MONTH SWITCHER & UNIFIED FILTER CARD                  */}
       {/* ======================================================== */}
-      <section className="px-6 py-1.5">
-        <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+      <section className="shrink-0 px-4 py-1">
+        <div className="bg-white border border-slate-200/80 rounded-lg p-2 shadow-2xs flex flex-row items-center justify-between gap-2">
           {/* Month Navigation */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+              className="p-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors flex items-center gap-0.5 shadow-2xs"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
               <span className="hidden sm:inline">Bulan Lalu</span>
             </button>
 
-            <div className="px-4 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-bold text-sm text-slate-900 shadow-2xs min-w-[150px] text-center">
+            <div className="px-3 py-1 rounded-md border border-slate-300 bg-slate-50 font-bold text-xs text-slate-900 shadow-2xs min-w-[130px] text-center">
               {monthNames[viewMonth]} {viewYear}
             </div>
 
             <button
               onClick={handleNextMonth}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+              className="p-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors flex items-center gap-0.5 shadow-2xs"
             >
               <span className="hidden sm:inline">Bulan Depan</span>
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
 
             <button
               onClick={handleResetToday}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors shadow-2xs ${
+              className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors shadow-2xs ${
                 isCurrentMonthView 
                   ? 'bg-slate-900 text-white border-slate-900' 
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -455,25 +453,25 @@ export default function TVCalendarDisplayPage() {
           </div>
 
           {/* Unified Filter Controls (Search + Provider Dropdown + Status Dropdown + Reset) */}
-          <div className="flex flex-wrap items-center gap-2 flex-1 justify-end text-xs">
+          <div className="flex items-center gap-1.5 flex-1 justify-end text-xs">
             {/* Search Input */}
-            <div className="relative min-w-[200px] flex-1 sm:flex-initial">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+            <div className="relative min-w-[170px] max-w-[240px] flex-1 sm:flex-initial">
+              <Search className="absolute left-2.5 top-2 text-slate-400" size={13} />
               <input
                 type="text"
                 placeholder="Cari link, CID, toko, vendor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+                className="w-full rounded-md pl-7 pr-2.5 py-1 text-[11px] bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
               />
             </div>
 
             {/* Comprehensive Provider Dropdown */}
-            <div className="min-w-[220px] flex-1 sm:flex-initial">
+            <div className="min-w-[180px] max-w-[220px] flex-1 sm:flex-initial">
               <select
                 value={selectedVendorFilter}
                 onChange={(e) => setSelectedVendorFilter(e.target.value)}
-                className="w-full rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+                className="w-full rounded-md px-2 py-1 text-[11px] font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400 truncate"
               >
                 <option value="">Semua Vendor ({rawMonthSchedules.length} Tagihan)</option>
                 {providers.map((p) => {
@@ -488,11 +486,11 @@ export default function TVCalendarDisplayPage() {
             </div>
 
             {/* Status Filter Dropdown */}
-            <div className="min-w-[150px]">
+            <div className="min-w-[130px]">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+                className="w-full rounded-md px-2 py-1 text-[11px] font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
               >
                 <option value="ALL">Semua Status ({rawMonthSchedules.length})</option>
                 <option value="UNPAID">Perlu Bayar ({rawMonthSchedules.filter((s) => s.status !== 'PAID').length})</option>
@@ -510,10 +508,10 @@ export default function TVCalendarDisplayPage() {
                   setSearchTerm('');
                   setStatusFilter('ALL');
                 }}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                className="px-2 py-1 rounded-md border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-2xs"
                 title="Reset Filter"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={11} />
                 <span>Reset</span>
               </button>
             )}
@@ -524,15 +522,15 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 4. CALENDAR GRID & PRIORITY QUEUE                        */}
       {/* ======================================================== */}
-      <main className="px-6 py-2 flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <main className="px-4 pt-0.5 pb-2 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-4 gap-2.5 overflow-hidden">
         {/* MONTHLY CALENDAR GRID */}
-        <div className="lg:col-span-3 rounded-lg border border-slate-200 bg-white p-3.5 flex flex-col shadow-2xs">
+        <div className="lg:col-span-3 rounded-lg border border-slate-200 bg-white p-2.5 flex flex-col shadow-2xs min-h-0 h-full overflow-hidden">
           {/* Day Names Header */}
-          <div className="grid grid-cols-7 gap-2 text-center pb-2 border-b border-slate-200">
+          <div className="grid grid-cols-7 gap-1 text-center pb-1 border-b border-slate-200 shrink-0">
             {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map((dayName, idx) => (
               <div
                 key={dayName}
-                className={`text-xs font-semibold uppercase tracking-wider py-0.5 ${
+                className={`text-[11px] font-semibold uppercase tracking-wider py-0.5 ${
                   idx >= 5 ? 'text-red-600' : 'text-slate-500'
                 }`}
               >
@@ -542,12 +540,15 @@ export default function TVCalendarDisplayPage() {
           </div>
 
           {/* Calendar Day Slots */}
-          <div className="grid grid-cols-7 gap-2 pt-2 flex-1">
+          <div 
+            className="grid grid-cols-7 gap-1 pt-1 flex-1 min-h-0 h-full"
+            style={{ gridTemplateRows: `repeat(${totalWeeks}, minmax(0, 1fr))` }}
+          >
             {/* Empty slots for first week */}
             {Array.from({ length: adjustedFirstDay }).map((_, idx) => (
               <div 
                 key={`empty-${idx}`} 
-                className="rounded-md border border-dashed border-slate-100 bg-slate-50/50 min-h-[90px]"
+                className="rounded border border-dashed border-slate-100 bg-slate-50/50 min-h-0 h-full"
               />
             ))}
 
@@ -566,7 +567,7 @@ export default function TVCalendarDisplayPage() {
               return (
                 <div
                   key={`day-${dayNum}`}
-                  className={`rounded-md border p-1.5 flex flex-col min-h-[95px] transition-colors relative ${
+                  className={`rounded border p-1 flex flex-col min-h-0 h-full overflow-hidden transition-colors relative ${
                     isToday
                       ? 'bg-blue-50/40 border-blue-500 ring-1 ring-blue-500'
                       : hasOverdue
@@ -576,24 +577,24 @@ export default function TVCalendarDisplayPage() {
                       : 'bg-white border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  {/* Date Number */}
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-bold ${
+                  {/* Date Number & Counter Header */}
+                  <div className="flex items-center justify-between shrink-0 mb-0.5">
+                    <span className={`text-[11px] font-bold ${
                       isToday 
-                        ? 'px-1.5 py-0.2 rounded bg-blue-600 text-white' 
+                        ? 'px-1 rounded bg-blue-600 text-white' 
                         : 'text-slate-700'
                     }`}>
                       {dayNum}
                     </span>
 
                     {isToday && (
-                      <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-blue-100 text-blue-800 uppercase">
+                      <span className="text-[8px] font-semibold px-1 py-0.2 rounded bg-blue-100 text-blue-800 uppercase">
                         Hari Ini
                       </span>
                     )}
 
                     {dayItems.length > 0 && !isToday && (
-                      <span className={`text-[10px] font-medium px-1 rounded ${
+                      <span className={`text-[9px] font-medium px-1 rounded ${
                         hasOverdue ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {dayItems.length} Inv
@@ -602,7 +603,7 @@ export default function TVCalendarDisplayPage() {
                   </div>
 
                   {/* Invoice Chips */}
-                  <div className="space-y-1 overflow-y-auto max-h-[105px] pr-0.5">
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-0.5">
                     {visibleItems.map((item) => {
                       const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
                       const badgeClass = getStatusBadgeStyle(item.status);
@@ -611,16 +612,16 @@ export default function TVCalendarDisplayPage() {
                         <div
                           key={item.id}
                           onClick={() => setDetailItem(item)}
-                          className={`p-1 rounded border text-left cursor-pointer transition-colors hover:bg-opacity-80 ${badgeClass}`}
+                          className={`p-0.5 px-1 rounded border text-left cursor-pointer transition-colors hover:bg-opacity-80 ${badgeClass}`}
                           title="Klik untuk melihat rincian tagihan"
                         >
-                          <div className="flex items-center justify-between gap-1 text-[11px] font-semibold leading-tight">
+                          <div className="flex items-center justify-between gap-1 text-[10px] font-semibold leading-tight">
                             <span className="truncate">{shortVendor}</span>
-                            <span className="whitespace-nowrap text-[10px] font-bold">
+                            <span className="whitespace-nowrap text-[9px] font-bold">
                               {formatIDR(item.remaining_amount || item.amount)}
                             </span>
                           </div>
-                          <div className="text-[10px] truncate text-slate-600 mt-0.5">
+                          <div className="text-[9px] truncate text-slate-600 leading-tight">
                             {item.service?.service_name || item.service?.cid}
                           </div>
                         </div>
@@ -631,7 +632,7 @@ export default function TVCalendarDisplayPage() {
                     {remainingCount > 0 && (
                       <button
                         onClick={() => setDayModalItems({ day: dayNum, items: dayItems })}
-                        className="w-full py-0.5 px-1 rounded text-[10px] font-medium text-center bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                        className="w-full py-0.2 px-1 rounded text-[9px] font-medium text-center bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors leading-tight"
                       >
                         +{remainingCount} Tagihan Lainnya
                       </button>
@@ -644,20 +645,20 @@ export default function TVCalendarDisplayPage() {
         </div>
 
         {/* SIDE PRIORITY QUEUE PANEL */}
-        <div className="rounded-lg border border-slate-200 bg-white p-3.5 flex flex-col shadow-2xs">
-          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+        <div className="rounded-lg border border-slate-200 bg-white p-2.5 flex flex-col shadow-2xs min-h-0 h-full overflow-hidden">
+          <div className="shrink-0 flex items-center justify-between pb-1.5 border-b border-slate-200">
             <div className="flex items-center gap-1.5">
-              <AlertCircle size={16} className="text-amber-600" />
-              <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wide">
+              <AlertCircle size={14} className="text-amber-600" />
+              <h3 className="font-bold text-[11px] text-slate-900 uppercase tracking-wide">
                 Prioritas Pembayaran Terdekat
               </h3>
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 text-slate-600">
               {upcomingPriorityList.length} Antrean
             </span>
           </div>
 
-          <div className="space-y-2 pt-3 overflow-y-auto flex-1 max-h-[580px] pr-1">
+          <div className="space-y-1.5 pt-2 overflow-y-auto flex-1 min-h-0 pr-0.5">
             {upcomingPriorityList.length > 0 ? (
               upcomingPriorityList.map((item) => {
                 const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
@@ -667,27 +668,27 @@ export default function TVCalendarDisplayPage() {
                   <div
                     key={`side-${item.id}`}
                     onClick={() => setDetailItem(item)}
-                    className={`p-2.5 rounded-md border cursor-pointer hover:border-slate-400 transition-colors ${badgeClass}`}
+                    className={`p-2 rounded border cursor-pointer hover:border-slate-400 transition-colors ${badgeClass}`}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-xs text-slate-900 flex items-center gap-1">
-                        <Building2 size={12} className="text-slate-600" />
-                        <span>{shortVendor}</span>
+                      <span className="font-bold text-[11px] text-slate-900 flex items-center gap-1">
+                        <Building2 size={11} className="text-slate-600" />
+                        <span className="truncate">{shortVendor}</span>
                       </span>
-                      <span className="text-[10px] font-semibold uppercase">
+                      <span className="text-[9px] font-semibold uppercase">
                         {item.status}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-700 mt-1 font-medium truncate">
+                    <div className="text-[10px] text-slate-700 mt-0.5 font-medium truncate">
                       {item.service?.service_name}
                     </div>
 
-                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-slate-200/60 text-[11px]">
+                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-200/60 text-[10px]">
                       <span className="font-bold text-slate-900">
                         {formatIDR(item.remaining_amount || item.amount)}
                       </span>
-                      <span className="text-slate-600 text-[10px]">
+                      <span className="text-slate-600 text-[9px]">
                         Jatuh Tempo: {new Date(item.due_date).toLocaleDateString('id-ID')}
                       </span>
                     </div>
@@ -695,9 +696,9 @@ export default function TVCalendarDisplayPage() {
                 );
               })
             ) : (
-              <div className="py-12 text-center text-xs text-slate-500">
-                <CheckCircle2 size={24} className="mx-auto mb-1.5 text-emerald-600" />
-                <span>Semua tagihan telah lunas.</span>
+              <div className="py-8 text-center text-xs text-slate-500">
+                <CheckCircle2 size={22} className="mx-auto mb-1 text-emerald-600" />
+                <span className="text-[11px]">Semua tagihan telah lunas.</span>
               </div>
             )}
           </div>
