@@ -14,7 +14,9 @@ import {
   ArrowLeft,
   X,
   AlertCircle,
-  Search
+  Search,
+  RotateCcw,
+  Filter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ArtacomLogo from '../components/ArtacomLogo';
@@ -32,6 +34,7 @@ export default function TVCalendarDisplayPage() {
   // Display options
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [detailItem, setDetailItem] = useState(null);
   const [dayModalItems, setDayModalItems] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,6 +203,16 @@ export default function TVCalendarDisplayPage() {
     monthSchedules = monthSchedules.filter((s) => String(s.service?.provider_id) === String(selectedVendorFilter));
   }
 
+  if (statusFilter === 'UNPAID') {
+    monthSchedules = monthSchedules.filter((s) => s.status !== 'PAID');
+  } else if (statusFilter === 'PAID') {
+    monthSchedules = monthSchedules.filter((s) => s.status === 'PAID');
+  } else if (statusFilter === 'OVERDUE') {
+    monthSchedules = monthSchedules.filter((s) => s.status === 'OVERDUE');
+  } else if (statusFilter === 'DUE_TODAY') {
+    monthSchedules = monthSchedules.filter((s) => s.status === 'DUE_TODAY');
+  }
+
   if (searchTerm && searchTerm.trim()) {
     const sLower = searchTerm.trim().toLowerCase();
     monthSchedules = monthSchedules.filter((item) => {
@@ -353,26 +366,11 @@ export default function TVCalendarDisplayPage() {
       {/* ======================================================== */}
       {/* 2. FORMAL EXECUTIVE KPI SUMMARY CARDS                    */}
       {/* ======================================================== */}
+      {/* ======================================================== */}
+      {/* 2. FORMAL EXECUTIVE KPI SUMMARY CARDS                    */}
+      {/* ======================================================== */}
       <section className="px-6 pt-3 pb-1">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          {/* Total Tagihan */}
-          <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Total Tagihan {monthNames[viewMonth]}
-              </div>
-              <div className="text-lg md:text-xl font-bold text-slate-900 mt-0.5">
-                {formatIDR(totalNominalBulanIni)}
-              </div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                {monthSchedules.length} Tagihan Terdaftar
-              </div>
-            </div>
-            <div className="p-2.5 bg-slate-50 text-slate-600 rounded-lg border border-slate-100">
-              <Receipt size={20} />
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {/* Due Today */}
           <div className={`p-3.5 bg-white rounded-lg border shadow-2xs flex items-center justify-between ${
             dueTodayItems.length > 0 ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'
@@ -414,132 +412,112 @@ export default function TVCalendarDisplayPage() {
               <AlertTriangle size={20} />
             </div>
           </div>
-
-          {/* Lunas / Paid */}
-          <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
-                Sudah Lunas Terbayar
-              </div>
-              <div className="text-lg md:text-xl font-bold text-emerald-800 mt-0.5">
-                {formatIDR(paidNominal)}
-              </div>
-              <div className="text-xs text-emerald-600 mt-0.5">
-                {paidItems.length} Tagihan Selesai
-              </div>
-            </div>
-            <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
-              <CheckCircle2 size={20} />
-            </div>
-          </div>
         </div>
       </section>
 
       {/* ======================================================== */}
-      {/* 3. MONTH SWITCHER & SMART VENDOR FILTER BAR              */}
+      {/* 3. MONTH SWITCHER & UNIFIED FILTER CARD                  */}
       {/* ======================================================== */}
-      <section className="px-6 py-2 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
-        {/* Month Navigation */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={handlePrevMonth}
-            className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1"
-          >
-            <ChevronLeft size={16} />
-            <span className="hidden sm:inline">Bulan Lalu</span>
-          </button>
-
-          <div className="px-3.5 py-1 rounded-md border border-slate-300 bg-white font-bold text-sm text-slate-900">
-            {monthNames[viewMonth]} {viewYear}
-          </div>
-
-          <button
-            onClick={handleNextMonth}
-            className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1"
-          >
-            <span className="hidden sm:inline">Bulan Depan</span>
-            <ChevronRight size={16} />
-          </button>
-
-          <button
-            onClick={handleResetToday}
-            className={`px-3 py-1 rounded-md border text-xs font-medium transition-colors ${
-              isCurrentMonthView 
-                ? 'bg-slate-800 text-white border-slate-800 font-semibold' 
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Bulan Ini
-          </button>
-        </div>
-
-        {/* Vendor Filter Buttons & Search */}
-        <div className="flex items-center gap-1.5 flex-1 justify-end overflow-x-auto pb-0.5 text-xs">
-          <div className="relative w-48">
-            <Search className="absolute left-2.5 top-2 text-slate-400" size={13} />
-            <input
-              type="text"
-              placeholder="Cari link / vendor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-md pl-7 pr-2.5 py-1 text-xs bg-white border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400"
-            />
-          </div>
-
-          <button
-            onClick={() => setSelectedVendorFilter('')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-              !selectedVendorFilter
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-            }`}
-          >
-            Semua ({rawMonthSchedules.length})
-          </button>
-
-          {/* Smart Vendor Pills */}
-          {smartPillProviders.map((prov) => {
-            const count = rawMonthSchedules.filter((s) => String(s.service?.provider_id) === String(prov.id)).length;
-            const isSelected = String(selectedVendorFilter) === String(prov.id);
-            const shortName = getShortVendorName(prov.provider_name);
-
-            return (
-              <button
-                key={prov.id}
-                onClick={() => setSelectedVendorFilter(isSelected ? '' : String(prov.id))}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-slate-800 text-white font-semibold'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <span>{shortName}</span>
-                {count > 0 && (
-                  <span className={`px-1.5 py-0.1 rounded-full text-[10px] ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Full Dropdown for Remaining Providers */}
-          {providers.length > smartPillProviders.length && (
-            <select
-              value={selectedVendorFilter}
-              onChange={(e) => setSelectedVendorFilter(e.target.value)}
-              className="rounded-md px-2.5 py-1 text-xs font-medium bg-white border border-slate-200 text-slate-700 cursor-pointer focus:outline-none"
+      <section className="px-6 py-1.5">
+        <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+          {/* Month Navigation */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handlePrevMonth}
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
             >
-              <option value="">Vendor Lainnya ({providers.length - smartPillProviders.length})...</option>
-              {providers
-                .filter((p) => !smartPillProviders.some((sp) => sp.id === p.id))
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.provider_name}</option>
-                ))}
-            </select>
-          )}
+              <ChevronLeft size={16} />
+              <span className="hidden sm:inline">Bulan Lalu</span>
+            </button>
+
+            <div className="px-4 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-bold text-sm text-slate-900 shadow-2xs min-w-[150px] text-center">
+              {monthNames[viewMonth]} {viewYear}
+            </div>
+
+            <button
+              onClick={handleNextMonth}
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+            >
+              <span className="hidden sm:inline">Bulan Depan</span>
+              <ChevronRight size={16} />
+            </button>
+
+            <button
+              onClick={handleResetToday}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors shadow-2xs ${
+                isCurrentMonthView 
+                  ? 'bg-slate-900 text-white border-slate-900' 
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Bulan Ini
+            </button>
+          </div>
+
+          {/* Unified Filter Controls (Search + Provider Dropdown + Status Dropdown + Reset) */}
+          <div className="flex flex-wrap items-center gap-2 flex-1 justify-end text-xs">
+            {/* Search Input */}
+            <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+              <input
+                type="text"
+                placeholder="Cari link, CID, toko, vendor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+              />
+            </div>
+
+            {/* Comprehensive Provider Dropdown */}
+            <div className="min-w-[220px] flex-1 sm:flex-initial">
+              <select
+                value={selectedVendorFilter}
+                onChange={(e) => setSelectedVendorFilter(e.target.value)}
+                className="w-full rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+              >
+                <option value="">Semua Vendor ({rawMonthSchedules.length} Tagihan)</option>
+                {providers.map((p) => {
+                  const count = rawMonthSchedules.filter((s) => String(s.service?.provider_id) === String(p.id)).length;
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.provider_name} {count > 0 ? `(${count})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className="min-w-[150px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 cursor-pointer focus:outline-none focus:bg-white focus:ring-1 focus:ring-slate-400"
+              >
+                <option value="ALL">Semua Status ({rawMonthSchedules.length})</option>
+                <option value="UNPAID">Perlu Bayar ({rawMonthSchedules.filter((s) => s.status !== 'PAID').length})</option>
+                <option value="OVERDUE">Overdue ({rawMonthSchedules.filter((s) => s.status === 'OVERDUE').length})</option>
+                <option value="DUE_TODAY">Hari Ini ({rawMonthSchedules.filter((s) => s.status === 'DUE_TODAY').length})</option>
+                <option value="PAID">Sudah Lunas ({rawMonthSchedules.filter((s) => s.status === 'PAID').length})</option>
+              </select>
+            </div>
+
+            {/* Reset Filter Button */}
+            {(selectedVendorFilter || searchTerm || statusFilter !== 'ALL') && (
+              <button
+                onClick={() => {
+                  setSelectedVendorFilter('');
+                  setSearchTerm('');
+                  setStatusFilter('ALL');
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                title="Reset Filter"
+              >
+                <RotateCcw size={12} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
