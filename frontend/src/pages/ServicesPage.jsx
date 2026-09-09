@@ -585,14 +585,14 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     setImportProgress(0);
 
     // Fetch latest fresh options from backend API
-    let latestCust = customers;
-    let latestProv = providers;
-    let latestTypes = serviceTypes;
+    let latestCust = [...customers];
+    let latestProv = [...providers];
+    let latestTypes = [...serviceTypes];
 
     try {
       const [cRes, pRes, tRes] = await Promise.all([
-        api.get('/customers'),
-        api.get('/providers'),
+        api.get('/customers?limit=200'),
+        api.get('/providers?limit=200'),
         api.get('/service-types'),
       ]);
       if (cRes.success && cRes.data?.length) latestCust = cRes.data;
@@ -602,11 +602,29 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       console.error("Error loading master options for import:", e);
     }
 
-    const defaultStId = latestTypes[0]?.id || 1;
-    const defaultCustId = latestCust.find((c) => c.customer_name.toLowerCase().includes('alfa'))?.id || latestCust[0]?.id || 1;
+    // Ensure at least one Customer exists in DB
+    let defaultCustId = latestCust[0]?.id;
+    if (!defaultCustId) {
+      try {
+        const createCustRes = await api.post('/customers', {
+          customer_code: 'CUST-AJN',
+          customer_name: 'PT Artacomindo Jejaring Nusa',
+          contact: 'Internal Finance',
+          status: 'ACTIVE',
+        });
+        if (createCustRes.success && createCustRes.data?.id) {
+          defaultCustId = createCustRes.data.id;
+          latestCust.push(createCustRes.data);
+        }
+      } catch (err) {
+        console.warn("Could not auto-create base customer:", err);
+      }
+    }
 
+    const defaultStId = latestTypes[0]?.id || 1;
     let successCount = 0;
     let failCount = 0;
+    let lastErrorMessage = '';
 
     for (let i = 0; i < parsedImportRows.length; i++) {
       const row = parsedImportRows[i];
@@ -639,16 +657,20 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         parsedHpp = Math.round(parsedTotal / 1.11);
         parsedTax = parsedTotal - parsedHpp;
       }
-      const effectiveAmount = (parsedHpp + parsedTax) > 0 ? (parsedHpp + parsedTax) : (parsedTotal || 7500000);
+      const effectiveAmount = (parsedHpp + parsedTax) > 0 ? (parsedHpp + parsedTax) : (parsedTotal || 0);
 
-      let providerObj = latestProv.find((p) => p.provider_name.toLowerCase().includes(providerNameInput.toLowerCase()));
-      let providerId = providerObj ? providerObj.id : (latestProv[0]?.id || 1);
+      // Find or create provider
+      let providerObj = latestProv.find((p) => 
+        p.provider_name.toLowerCase().trim() === providerNameInput.toLowerCase().trim() ||
+        p.provider_name.toLowerCase().includes(providerNameInput.toLowerCase())
+      );
+      let providerId = providerObj ? providerObj.id : null;
 
-      // Auto-create provider if not found in DB
-      if (!providerObj && providerNameInput) {
+      if (!providerId && providerNameInput) {
         try {
+          const cleanCode = providerNameInput.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
           const newProvRes = await api.post('/providers', {
-            provider_code: `PROV-${Date.now()}-${i}`,
+            provider_code: `PROV-${cleanCode}-${Date.now().toString().slice(-4)}`,
             provider_name: providerNameInput,
             status: 'ACTIVE',
           });
@@ -657,20 +679,24 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             latestProv.push(newProvRes.data);
           }
         } catch (e) {
-          console.warn("Could not auto-create provider, using fallback:", e);
+          console.warn("Could not auto-create provider on the fly:", e);
         }
+      }
+
+      if (!providerId) {
+        providerId = latestProv[0]?.id || 1;
       }
 
       const payload = {
         service_name: serviceName,
         service_type_id: defaultStId,
-        customer_id: defaultCustId,
+        customer_id: defaultCustId || 1,
         provider_id: providerId,
         cid: cid,
         site_id: siteId,
         site_name: dcName,
         location: location,
-        contract_number: `CTR-IMP-${Date.now()}-${i}`,
+        contract_number: `CTR-IMP-${Date.now().toString().slice(-6)}-${i+1}`,
         billing_cycle: ['MONTHLY', 'QUARTERLY', 'YEARLY', 'SEMI_ANNUAL'].includes(cycle) ? cycle : 'MONTHLY',
         due_day: dueDayVal,
         amount: effectiveAmount,
@@ -687,10 +713,15 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
       try {
         const res = await api.post('/services', payload);
-        if (res.success) successCount++;
-        else failCount++;
+        if (res.success) {
+          successCount++;
+        } else {
+          failCount++;
+          if (res.message) lastErrorMessage = res.message;
+        }
       } catch (err) {
         failCount++;
+        if (err.message) lastErrorMessage = err.message;
       }
 
       setImportProgress(Math.round(((i + 1) / parsedImportRows.length) * 100));
