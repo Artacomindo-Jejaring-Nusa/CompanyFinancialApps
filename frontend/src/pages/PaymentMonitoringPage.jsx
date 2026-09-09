@@ -51,6 +51,7 @@ export default function PaymentMonitoringPage() {
 
   // Modals
   const [payModalItem, setPayModalItem] = useState(null);
+  const [quickPayModalItem, setQuickPayModalItem] = useState(null);
   const [bulkPayModalOpen, setBulkPayModalOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
@@ -377,6 +378,49 @@ export default function PaymentMonitoringPage() {
       }
     } catch (err) {
       alert(err.message || 'Payment submission failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleQuickDirectPaid = async (item) => {
+    if (!item) return;
+    setSubmitting(true);
+    try {
+      const base = item.remaining_amount || item.amount || 0;
+      const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
+        ? Number(item.service.attributes.bank_charge) 
+        : 0;
+      const totalAmount = Number(base) + savedAdminFee;
+      
+      const provCode = (item.service?.provider?.provider_code || item.service?.provider?.provider_name || 'VND')
+        .substring(0, 4)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/gi, '');
+      const autoRef = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${provCode}-${Date.now().toString().slice(-4)}`;
+
+      let notesCombined = item.notes || '';
+      if (savedAdminFee > 0) {
+        notesCombined += ` | Biaya Admin Bank: ${formatIDR(savedAdminFee)}`;
+      }
+
+      const payload = {
+        schedule_id: item.id,
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_amount: totalAmount,
+        payment_reference: autoRef,
+        payment_method: 'Bank Transfer (BCA)',
+        notes: (notesCombined.trim() || 'Pelunasan Cepat (Instant Paid)'),
+      };
+
+      const res = await api.post('/payment-schedules/mark-as-paid', payload);
+      if (res.success) {
+        setQuickPayModalItem(null);
+        setPayModalItem(null);
+        fetchSchedules(page, limit);
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal memproses pelunasan cepat');
     } finally {
       setSubmitting(false);
     }
@@ -865,21 +909,36 @@ export default function PaymentMonitoringPage() {
                               <button
                                 onClick={() => setDetailItem(item)}
                                 className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Lihat Detail Invoice"
+                                title="Lihat Detail Tagihan & Rincian"
                               >
                                 <Eye size={15} />
                               </button>
 
                               {item.status !== 'PAID' ? (
-                                <button
-                                  onClick={() => openPayModal(item)}
-                                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors shadow-2xs"
-                                >
-                                  Bayar
-                                </button>
+                                <>
+                                  {/* Opsi 1: Bayar Rinci (Modal Keterangan Lengkap) */}
+                                  <button
+                                    onClick={() => openPayModal(item)}
+                                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors shadow-2xs flex items-center gap-1"
+                                    title="Opsi 1: Bayar dengan rincian & keterangan tambahan"
+                                  >
+                                    <span>Bayar</span>
+                                  </button>
+
+                                  {/* Opsi 2: Langsung Paid (Instant Paid) */}
+                                  <button
+                                    onClick={() => setQuickPayModalItem(item)}
+                                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors shadow-2xs flex items-center gap-1"
+                                    title="Opsi 2: Langsung Lunas (Instant Paid)"
+                                  >
+                                    <CheckCircle2 size={12} />
+                                    <span>Paid</span>
+                                  </button>
+                                </>
                               ) : (
-                                <span className="text-[11px] text-emerald-700 font-bold px-2 py-0.5 bg-emerald-50 rounded-md border border-emerald-200">
-                                  Lunas
+                                <span className="text-[11px] text-emerald-700 font-bold px-2 py-0.5 bg-emerald-50 rounded-md border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 size={12} />
+                                  <span>Lunas</span>
                                 </span>
                               )}
                             </div>
@@ -1322,24 +1381,133 @@ export default function PaymentMonitoringPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
+              <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
                   onClick={() => setPayModalItem(null)}
-                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
                 >
                   Batal
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-xs flex items-center gap-1.5"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>{submitting ? 'Menyimpan...' : 'Konfirmasi Pelunasan'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleQuickDirectPaid(payModalItem)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs"
+                    title="Langsung Lunaskan tanpa perlu edit form"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>Langsung Lunas (Default)</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 text-xs flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>{submitting ? 'Menyimpan...' : 'Konfirmasi Pelunasan'}</span>
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2B: QUICK DIRECT MARK AS PAID (INSTANT PAID)        */}
+      {/* ========================================================= */}
+      {quickPayModalItem && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                  <CheckCircle2 size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base leading-tight">Konfirmasi Pelunasan Cepat</h3>
+                  <p className="text-[11px] text-slate-500">Tandai tagihan langsung lunas (Instant Paid)</p>
+                </div>
+              </div>
+              <button onClick={() => setQuickPayModalItem(null)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5">
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-500 font-medium">Nama Layanan:</span>
+                  <span className="font-bold text-slate-900 text-right max-w-[200px] truncate">{quickPayModalItem.service?.service_name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Vendor / Provider:</span>
+                  <span className="font-bold text-blue-700">{quickPayModalItem.service?.provider?.provider_name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Periode Tagihan:</span>
+                  <span className="font-mono font-semibold text-slate-800">{quickPayModalItem.period}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Tanggal Pembayaran:</span>
+                  <span className="font-semibold text-slate-800">Hari Ini ({new Date().toLocaleDateString('id-ID')})</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Metode Default:</span>
+                  <span className="font-semibold text-slate-800">Bank Transfer (BCA)</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-600 text-white rounded-lg flex items-center justify-between shadow-xs">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
+                    Total Yang Akan Dilunasi
+                  </div>
+                  <div className="text-[11px] opacity-80 mt-0.5">
+                    Nominal Penuh Tagihan
+                  </div>
+                </div>
+                <div className="font-mono text-base sm:text-lg font-black tracking-tight">
+                  {formatIDR(quickPayModalItem.remaining_amount || quickPayModalItem.amount)}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => handleQuickDirectPaid(quickPayModalItem)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 text-xs"
+              >
+                <CheckCircle2 size={16} />
+                <span>{submitting ? 'Memproses Pelunasan...' : 'Ya, Konfirmasi Langsung Lunas (Instant Paid)'}</span>
+              </button>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const item = quickPayModalItem;
+                    setQuickPayModalItem(null);
+                    openPayModal(item);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                >
+                  Opsi Lain: Buka Form Keterangan Lengkap & Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickPayModalItem(null)}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
