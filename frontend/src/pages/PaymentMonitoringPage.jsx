@@ -817,7 +817,7 @@ export default function PaymentMonitoringPage() {
                     schedules.map((item) => {
                       const notes = item.notes || '';
                       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
-                      const displayInvoiceNum = invMatch ? invMatch[1] : (item.service?.contract_number || '-');
+                      const displayInvoiceNum = invMatch ? invMatch[1] : ((item.service?.contract_number && !item.service.contract_number.startsWith('CTR-IMP-') && !item.service.contract_number.startsWith('CTR-')) ? item.service.contract_number : '-');
 
                       // Calculate breakdown
                       let hpp = 0;

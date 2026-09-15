@@ -39,28 +39,68 @@ import { TableSkeleton } from '../components/Skeleton';
 import { exportToCSV, exportToExcel, downloadImportTemplate } from '../utils/exporter';
 
 // Category Helper Functions
-export const isInternetService = (s) => {
-  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
-  const id = Number(s?.service_type_id || s?.id || 0);
-  return name.includes('fiber') || name.includes('fo') || name.includes('vsat') || name.includes('gsm') || name.includes('internet') || id === 1 || id === 2;
-};
-
 export const isHostingService = (s) => {
-  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
-  const id = Number(s?.service_type_id || s?.id || 0);
-  return name.includes('cloud') || name.includes('vps') || name.includes('hosting') || name.includes('server') || name.includes('data center') || name.includes('co-location') || id === 3;
+  const typeName = (s?.service_type?.name || s?.service_type_name || '').toLowerCase();
+  if (typeName.includes('cloud') || typeName.includes('vps') || typeName.includes('hosting') || typeName.includes('co-location') || typeName.includes('colocation')) {
+    return true;
+  }
+  const sName = (s?.service_name || '').toLowerCase();
+  if ((sName.includes('cloud') || sName.includes('vps') || sName.includes('hosting') || sName.includes('server')) && !sName.includes('toko') && !sName.includes('outlet') && !sName.includes('alfamart')) {
+    return true;
+  }
+  return false;
 };
 
 export const isSoftwareService = (s) => {
-  const name = (s?.service_type?.name || s?.service_type_name || s?.name || '').toLowerCase();
-  const id = Number(s?.service_type_id || s?.id || 0);
-  return name.includes('software') || name.includes('saas') || name.includes('license') || name.includes('lisensi') || id === 4;
+  const typeName = (s?.service_type?.name || s?.service_type_name || '').toLowerCase();
+  if (typeName.includes('software') || typeName.includes('saas') || typeName.includes('license') || typeName.includes('lisensi')) {
+    return true;
+  }
+  const sName = (s?.service_name || '').toLowerCase();
+  if (sName.includes('license') || sName.includes('lisensi') || sName.includes('software') || sName.includes('saas')) {
+    return true;
+  }
+  return false;
+};
+
+export const isInternetService = (s) => {
+  if (isSoftwareService(s) || isHostingService(s)) return false;
+  return true;
 };
 
 export const getServiceCategory = (s) => {
-  if (isHostingService(s)) return 'HOSTING';
   if (isSoftwareService(s)) return 'SOFTWARE';
+  if (isHostingService(s)) return 'HOSTING';
   return 'INTERNET';
+};
+
+// Robust helper to find column value by loose / trimmed key matching in Excel objects
+export const getRowVal = (row, ...possibleKeys) => {
+  if (!row) return '';
+  for (const k of possibleKeys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  const rowKeys = Object.keys(row);
+  for (const targetKey of possibleKeys) {
+    const cleanTarget = targetKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const foundKey = rowKeys.find(rk => {
+      const cleanRk = rk.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanRk === cleanTarget || cleanRk.includes(cleanTarget) || cleanTarget.includes(cleanRk);
+    });
+    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && row[foundKey] !== '') {
+      return row[foundKey];
+    }
+  }
+  return '';
+};
+
+export const parseNumVal = (val) => {
+  if (val === undefined || val === null || val === '' || val === '-') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val).trim();
+  if (str === '' || str === '-' || str === '0') return 0;
+  const cleanStr = str.replace(/[^0-9]/g, '');
+  return parseFloat(cleanStr) || 0;
 };
 
 export default function ServicesPage({ defaultCategory = 'ALL' }) {
@@ -146,7 +186,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
   const fetchServices = async (p = page, l = limit) => {
     setLoading(true);
     try {
-      let queryParams = `search=${encodeURIComponent(search)}&page=${p}&limit=500`;
+      let queryParams = `search=${encodeURIComponent(search)}&page=${p}&limit=10000`;
       if (filterCustomer) queryParams += `&customer_id=${filterCustomer}`;
       if (filterProvider) queryParams += `&provider_id=${filterProvider}`;
       if (filterStatus) queryParams += `&status=${filterStatus}`;
@@ -621,7 +661,39 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       }
     }
 
-    const defaultStId = latestTypes[0]?.id || 1;
+    // Helper to find column value by loose / trimmed key matching
+    const getRowVal = (row, ...possibleKeys) => {
+      for (const k of possibleKeys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+      }
+      const rowKeys = Object.keys(row);
+      for (const targetKey of possibleKeys) {
+        const cleanTarget = targetKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const foundKey = rowKeys.find(rk => {
+          const cleanRk = rk.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return cleanRk === cleanTarget || cleanRk.includes(cleanTarget) || cleanTarget.includes(cleanRk);
+        });
+        if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && row[foundKey] !== '') {
+          return row[foundKey];
+        }
+      }
+      return '';
+    };
+
+    const parseNumVal = (val) => {
+      if (val === undefined || val === null || val === '' || val === '-') return 0;
+      if (typeof val === 'number') return isNaN(val) ? 0 : val;
+      const str = String(val).trim();
+      if (str === '' || str === '-' || str === '0') return 0;
+      const cleanStr = str.replace(/[^0-9]/g, '');
+      return parseFloat(cleanStr) || 0;
+    };
+
+    const defaultStId = latestTypes.find(t => {
+      const n = (t.name || '').toLowerCase();
+      return n.includes('fiber') || n.includes('optic') || n.includes('internet');
+    })?.id || latestTypes[0]?.id || 1;
+
     let successCount = 0;
     let failCount = 0;
     let lastErrorMessage = '';
@@ -629,35 +701,32 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     for (let i = 0; i < parsedImportRows.length; i++) {
       const row = parsedImportRows[i];
 
-      const cid = String(row['Circuit ID (CID)'] || row['cid'] || row['CID'] || `CID-${Date.now()}-${i}`).trim();
-      const serviceName = String(row['Nama Toko / Layanan'] || row['service_name'] || row['Nama Toko'] || `FO Service ${i+1}`).trim();
-      const siteId = String(row['Site ID'] || row['site_id'] || '').trim();
-      const providerNameInput = String(row['Provider'] || row['provider_name'] || 'Biznet Networks').trim();
-      const dcName = String(row['Distribution Center (DC)'] || row['dc_name'] || 'DC Balaraja').trim();
-      const location = String(row['Lokasi Toko / Alamat'] || row['location'] || row['Alamat'] || '').trim();
-      const dueDayVal = parseInt(String(row['Tgl Jatuh Tempo (1-31)'] || row['due_day'] || '25').replace(/[^0-9]/g, '')) || 25;
-      const cycle = String(row['Siklus Penagihan'] || row['billing_cycle'] || 'MONTHLY').trim().toUpperCase();
-      const accountName = String(row['Nama Pemilik Rekening'] || row['A/T NAMA'] || row['account_name'] || '').trim();
+      const rawCid = getRowVal(row, 'Circuit ID (CID)', 'CID', 'cid', 'Circuit ID');
+      const cid = (!rawCid || rawCid === 0 || rawCid === '0' || rawCid === '-') ? '-' : String(rawCid).trim();
+
+      const serviceName = String(getRowVal(row, 'Nama Toko / Layanan', 'Nama Toko', 'service_name', 'Nama Layanan') || `FO Service ${i+1}`).trim();
+      const siteId = String(getRowVal(row, 'Site ID', 'site_id', 'Kode Toko') || '').trim();
+      const providerNameInput = String(getRowVal(row, 'Provider', 'provider_name', 'Vendor') || 'Biznet Networks').trim();
+      const dcName = String(getRowVal(row, 'Distribution Center (DC)', 'DC', 'dc_name') || 'DC Balaraja').trim();
+      const location = String(getRowVal(row, 'Lokasi Toko / Alamat', 'location', 'Alamat') || '').trim();
+      const rawDueDay = parseNumVal(getRowVal(row, 'Tgl Jatuh Tempo (1-31)', 'due_day', 'Jatuh Tempo'));
+      const dueDayVal = (rawDueDay >= 1 && rawDueDay <= 31) ? rawDueDay : 25;
+      const cycle = String(getRowVal(row, 'Siklus Penagihan', 'billing_cycle') || 'MONTHLY').trim().toUpperCase();
+      const accountName = String(getRowVal(row, 'Nama Pemilik Rekening', 'A/T NAMA', 'account_name', 'Rekening') || '').trim();
 
       // Parse financial breakdown
-      const rawHpp = row['HPP / Tarif Dasar (IDR)'] || row['HPP'] || row['hpp'] || '';
-      const rawTax = row['PPN 11% (IDR)'] || row['PPN 11%'] || row['PPN'] || row['tax'] || '';
-      const rawCharge = row['Biaya Charge / Admin Bank (IDR)'] || row['Biaya Charge'] || row['Admin Fee'] || row['bank_charge'] || '';
-      const rawTotal = row['Total Pembayaran (IDR)'] || row['Total Pembayaran'] || row['Biaya FO Bulanan (IDR)'] || row['amount'] || '';
+      let parsedHpp = parseNumVal(getRowVal(row, 'HPP / Tarif Dasar (IDR)', 'HPP', 'Tarif Dasar', 'hpp'));
+      let parsedTax = parseNumVal(getRowVal(row, 'PPN 11% (IDR)', 'PPN 11%', 'PPN', 'tax'));
+      let parsedCharge = parseNumVal(getRowVal(row, 'Biaya Charge / Admin Bank (IDR)', 'Biaya Charge', 'Admin Fee', 'bank_charge', 'charge'));
+      let parsedTotal = parseNumVal(getRowVal(row, 'Total Pembayaran (IDR)', 'Total Tagihan', 'Biaya FO Bulanan (IDR)', 'Total', 'amount'));
 
-      let parsedHpp = parseFloat(String(rawHpp).replace(/[^0-9.]/g, '')) || 0;
-      let parsedTax = parseFloat(String(rawTax).replace(/[^0-9.]/g, '')) || 0;
-      let parsedCharge = parseFloat(String(rawCharge).replace(/[^0-9.]/g, '')) || 0;
-      let parsedTotal = parseFloat(String(rawTotal).replace(/[^0-9.]/g, '')) || 0;
-
-      if (parsedHpp > 0 && parsedTax === 0) {
-        parsedTax = Math.round(parsedHpp * 0.11);
-      }
       if (parsedHpp === 0 && parsedTotal > 0) {
-        parsedHpp = Math.round(parsedTotal / 1.11);
-        parsedTax = parsedTotal - parsedHpp;
+        parsedHpp = parsedTotal;
       }
-      const effectiveAmount = (parsedHpp + parsedTax) > 0 ? (parsedHpp + parsedTax) : (parsedTotal || 0);
+      if (parsedTotal === 0 && parsedHpp > 0) {
+        parsedTotal = parsedHpp + parsedTax + parsedCharge;
+      }
+      const effectiveAmount = parsedTotal > 0 ? parsedTotal : ((parsedHpp + parsedTax + parsedCharge) || 0);
 
       // Find or create provider
       let providerObj = latestProv.find((p) => 
@@ -687,6 +756,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         providerId = latestProv[0]?.id || 1;
       }
 
+      const contractNum = String(getRowVal(row, 'Nomor Kontrak', 'No Kontrak', 'contract_number', 'No. Kontrak', 'Contract Number') || '').trim();
+
       const payload = {
         service_name: serviceName,
         service_type_id: defaultStId,
@@ -696,7 +767,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         site_id: siteId,
         site_name: dcName,
         location: location,
-        contract_number: `CTR-IMP-${Date.now().toString().slice(-6)}-${i+1}`,
+        contract_number: contractNum,
         billing_cycle: ['MONTHLY', 'QUARTERLY', 'YEARLY', 'SEMI_ANNUAL'].includes(cycle) ? cycle : 'MONTHLY',
         due_day: dueDayVal,
         amount: effectiveAmount,
@@ -731,7 +802,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
     setImportModalOpen(false);
     setParsedImportRows([]);
     setImportFileName('');
-    alert(`Bulk Import Selesai!\n✅ ${successCount} Layanan & Jadwal Tagihan Berhasil Ditambahkan.\n❌ ${failCount} Gagal.`);
+    alert(`Bulk Import Selesai!\n[SUKSES] ${successCount} Layanan & Jadwal Tagihan Berhasil Ditambahkan.\n[GAGAL] ${failCount} Gagal.`);
     fetchServices(1, limit);
   };
 
@@ -1515,22 +1586,47 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                           <th className="p-2 border-b">Site ID</th>
                           <th className="p-2 border-b">Provider</th>
                           <th className="p-2 border-b">DC</th>
-                          <th className="p-2 border-b text-right">Biaya Bulanan</th>
+                          <th className="p-2 border-b text-right">HPP (Dasar)</th>
+                          <th className="p-2 border-b text-right">PPN 11%</th>
+                          <th className="p-2 border-b text-right">Total Tagihan</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-mono">
-                        {parsedImportRows.slice(0, 50).map((r, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-2 font-bold">{r['Circuit ID (CID)'] || r['cid'] || '-'}</td>
-                            <td className="p-2 font-sans font-semibold">{r['Nama Toko / Layanan'] || r['service_name'] || '-'}</td>
-                            <td className="p-2 text-blue-700 font-bold">{r['Site ID'] || r['site_id'] || '-'}</td>
-                            <td className="p-2 font-sans">{r['Provider'] || r['provider_name'] || '-'}</td>
-                            <td className="p-2 font-sans">{r['Distribution Center (DC)'] || r['dc_name'] || '-'}</td>
-                            <td className="p-2 text-right font-bold text-slate-900">
-                              {formatIDR(r['Biaya FO Bulanan (IDR)'] || r['amount'] || 0)}
-                            </td>
-                          </tr>
-                        ))}
+                        {parsedImportRows.slice(0, 50).map((r, idx) => {
+                          const rawCid = getRowVal(r, 'Circuit ID (CID)', 'CID', 'cid', 'Circuit ID');
+                          const previewCid = (!rawCid || rawCid === 0 || rawCid === '0' || rawCid === '-') ? '-' : String(rawCid).trim();
+                          const previewName = getRowVal(r, 'Nama Toko / Layanan', 'Nama Toko', 'service_name', 'Nama Layanan') || '-';
+                          const previewSiteId = getRowVal(r, 'Site ID', 'site_id', 'Kode Toko') || '-';
+                          const previewProvider = getRowVal(r, 'Provider', 'provider_name', 'Vendor') || '-';
+                          const previewDc = getRowVal(r, 'Distribution Center (DC)', 'DC', 'dc_name') || '-';
+
+                          let previewHpp = parseNumVal(getRowVal(r, 'HPP / Tarif Dasar (IDR)', 'HPP', 'Tarif Dasar', 'hpp'));
+                          let previewTax = parseNumVal(getRowVal(r, 'PPN 11% (IDR)', 'PPN 11%', 'PPN', 'tax'));
+                          let previewCharge = parseNumVal(getRowVal(r, 'Biaya Charge / Admin Bank (IDR)', 'Biaya Charge', 'Admin Fee', 'bank_charge', 'charge'));
+                          let previewTotal = parseNumVal(getRowVal(r, 'Total Pembayaran (IDR)', 'Total Tagihan', 'Biaya FO Bulanan (IDR)', 'Total', 'amount'));
+
+                          if (previewHpp === 0 && previewTotal > 0) previewHpp = previewTotal;
+                          if (previewTotal === 0 && previewHpp > 0) previewTotal = previewHpp + previewTax + previewCharge;
+
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="p-2 font-bold">{previewCid}</td>
+                              <td className="p-2 font-sans font-semibold">{previewName}</td>
+                              <td className="p-2 text-blue-700 font-bold">{previewSiteId}</td>
+                              <td className="p-2 font-sans">{previewProvider}</td>
+                              <td className="p-2 font-sans">{previewDc}</td>
+                              <td className="p-2 text-right font-semibold text-slate-800">
+                                {formatIDR(previewHpp)}
+                              </td>
+                              <td className="p-2 text-right text-amber-700 font-semibold">
+                                {formatIDR(previewTax)}
+                              </td>
+                              <td className="p-2 text-right font-bold text-slate-900">
+                                {formatIDR(previewTotal)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

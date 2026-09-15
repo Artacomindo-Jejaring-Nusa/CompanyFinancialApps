@@ -28,8 +28,8 @@ func GetPaginationParam(c *gin.Context) PaginationParam {
 	if limit < 1 {
 		limit = 10
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > 10000 {
+		limit = 10000
 	}
 
 	return PaginationParam{
