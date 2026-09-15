@@ -123,30 +123,25 @@ func (u *serviceUsecase) generateInitialSchedules(ctx context.Context, service *
 	now := time.Now()
 	var schedules []domain.PaymentSchedule
 
-	var dueDate time.Time
-	var periodStr string
-
+	targetMonth := now
 	if !service.StartDate.IsZero() {
-		dueDate = service.StartDate
-		periodStr = service.StartDate.Format("2006-01")
-	} else {
-		targetMonth := now
-		periodStr = targetMonth.Format("2006-01")
-
-		year := targetMonth.Year()
-		month := targetMonth.Month()
-
-		lastDayOfMonth := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
-		actualDueDay := service.DueDay
-		if actualDueDay <= 0 {
-			actualDueDay = 25
-		}
-		if actualDueDay > lastDayOfMonth {
-			actualDueDay = lastDayOfMonth
-		}
-
-		dueDate = time.Date(year, month, actualDueDay, 0, 0, 0, 0, time.Local)
+		targetMonth = service.StartDate
 	}
+	periodStr := targetMonth.Format("2006-01")
+
+	year := targetMonth.Year()
+	month := targetMonth.Month()
+
+	lastDayOfMonth := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	actualDueDay := service.DueDay
+	if actualDueDay <= 0 {
+		actualDueDay = 25
+	}
+	if actualDueDay > lastDayOfMonth {
+		actualDueDay = lastDayOfMonth
+	}
+
+	dueDate := time.Date(year, month, actualDueDay, 0, 0, 0, 0, time.Local)
 
 	status := "UPCOMING"
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
