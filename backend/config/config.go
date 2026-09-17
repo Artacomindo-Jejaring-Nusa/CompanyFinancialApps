@@ -18,6 +18,7 @@ type Config struct {
 	DBSSLMode          string
 	RedisHost          string
 	RedisPort          string
+	RedisPassword      string
 	JWTSecret          string
 	JWTExpirationHours int
 	AllowedOrigins     []string
@@ -46,6 +47,7 @@ func LoadConfig() (*Config, error) {
 		DBSSLMode:          getEnv("DB_SSLMODE", "disable"),
 		RedisHost:          getEnv("REDIS_HOST", "localhost"),
 		RedisPort:          getEnv("REDIS_PORT", "6379"),
+		RedisPassword:      getEnv("REDIS_PASSWORD", "fspms_redis_secret_pass_2026"),
 		JWTSecret:          getEnv("JWT_SECRET", "super_secret_jwt_key_fspms_2026"),
 		JWTExpirationHours: jwtExpHours,
 		AllowedOrigins:     allowedOrigins,
