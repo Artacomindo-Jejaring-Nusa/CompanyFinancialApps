@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -19,12 +20,21 @@ type Config struct {
 	RedisPort          string
 	JWTSecret          string
 	JWTExpirationHours int
+	AllowedOrigins     []string
 }
 
 func LoadConfig() (*Config, error) {
 	_ = godotenv.Load(".env")
 
 	jwtExpHours, _ := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
+
+	originsRaw := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:8080")
+	var allowedOrigins []string
+	for _, o := range strings.Split(originsRaw, ",") {
+		if trimmed := strings.TrimSpace(o); trimmed != "" {
+			allowedOrigins = append(allowedOrigins, trimmed)
+		}
+	}
 
 	cfg := &Config{
 		ServerPort:         getEnv("SERVER_PORT", "8080"),
@@ -38,6 +48,7 @@ func LoadConfig() (*Config, error) {
 		RedisPort:          getEnv("REDIS_PORT", "6379"),
 		JWTSecret:          getEnv("JWT_SECRET", "super_secret_jwt_key_fspms_2026"),
 		JWTExpirationHours: jwtExpHours,
+		AllowedOrigins:     allowedOrigins,
 	}
 
 	return cfg, nil

@@ -24,7 +24,14 @@ type RouterDependencies struct {
 func SetupRouter(deps *RouterDependencies) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.CORSMiddleware(deps.Config.AllowedOrigins))
+
+	// Global API Rate Limiter: 300 requests per minute with burst capacity of 60
+	globalLimiter := middleware.NewRateLimiter(5.0, 60.0)
+	r.Use(middleware.RateLimitMiddleware(globalLimiter))
+
+	// Dedicated Strict Rate Limiter for Authentication: 10 attempts burst, 1 token per 5s
+	authLimiter := middleware.NewRateLimiter(0.2, 10.0)
 
 	// Health Check
 	r.GET("/health", func(c *gin.Context) {
@@ -33,10 +40,10 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 
 	apiV1 := r.Group("/api/v1")
 	{
-		// Public Auth routes
+		// Public Auth routes (with brute-force rate limiting)
 		authGroup := apiV1.Group("/auth")
 		{
-			authGroup.POST("/login", deps.AuthHandler.Login)
+			authGroup.POST("/login", middleware.RateLimitMiddleware(authLimiter), deps.AuthHandler.Login)
 		}
 
 		// Public TV Wallboard Display routes (No login required)
