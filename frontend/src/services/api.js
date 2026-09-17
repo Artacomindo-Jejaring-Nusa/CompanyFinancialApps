@@ -24,7 +24,8 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('fspms_token');
       localStorage.removeItem('fspms_user');
-      if (window.location.pathname !== '/login') {
+      const isPublicPath = ['/login', '/display', '/wallboard', '/tv-calendar'].includes(window.location.pathname);
+      if (!isPublicPath) {
         window.location.href = '/login';
       }
     }

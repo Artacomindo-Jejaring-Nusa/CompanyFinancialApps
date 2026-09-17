@@ -39,6 +39,13 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 			authGroup.POST("/login", deps.AuthHandler.Login)
 		}
 
+		// Public TV Wallboard Display routes (No login required)
+		displayGroup := apiV1.Group("/display")
+		{
+			displayGroup.GET("/schedules", deps.PaymentScheduleHandler.GetAll)
+			displayGroup.GET("/providers", deps.ProviderHandler.GetAll)
+		}
+
 		// Protected routes
 		protected := apiV1.Group("")
 		protected.Use(middleware.AuthMiddleware(deps.Config.JWTSecret))

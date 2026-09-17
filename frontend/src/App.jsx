@@ -35,31 +35,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Standalone Fullscreen TV Wallboard Display Routes */}
-        <Route
-          path="/display"
-          element={
-            <ProtectedRoute>
-              <TVCalendarDisplayPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/wallboard"
-          element={
-            <ProtectedRoute>
-              <TVCalendarDisplayPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tv-calendar"
-          element={
-            <ProtectedRoute>
-              <TVCalendarDisplayPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Standalone Fullscreen TV Wallboard Display Routes (No Login Required) */}
+        <Route path="/display" element={<TVCalendarDisplayPage />} />
+        <Route path="/wallboard" element={<TVCalendarDisplayPage />} />
+        <Route path="/tv-calendar" element={<TVCalendarDisplayPage />} />
 
         <Route
           path="/"

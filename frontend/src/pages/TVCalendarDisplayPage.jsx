@@ -89,15 +89,25 @@ export default function TVCalendarDisplayPage() {
   const fetchSchedulesData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const [schedRes, provRes] = await Promise.all([
-        api.get('/payment-schedules?limit=1000'),
-        api.get('/providers?limit=200'),
-      ]);
+      let schedRes;
+      let provRes;
+      try {
+        [schedRes, provRes] = await Promise.all([
+          api.get('/display/schedules?limit=10000'),
+          api.get('/display/providers?limit=500'),
+        ]);
+      } catch (publicErr) {
+        // Fallback to standard endpoints if /display is not yet available
+        [schedRes, provRes] = await Promise.all([
+          api.get('/payment-schedules?limit=10000'),
+          api.get('/providers?limit=500'),
+        ]);
+      }
 
-      if (schedRes.success) {
+      if (schedRes && schedRes.success) {
         setSchedules(schedRes.data || []);
       }
-      if (provRes.success) {
+      if (provRes && provRes.success) {
         const cleaned = (provRes.data || []).filter(
           (p) => !['PROV-IOH', 'PROV-XL', 'PROV-AWS', 'PROV-GCP', 'PROV-MSF'].includes(p.provider_code)
         );
