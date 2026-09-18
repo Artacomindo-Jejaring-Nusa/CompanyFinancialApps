@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
@@ -1578,9 +1579,9 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       </div>
 
       {/* BULK IMPORT MODAL */}
-      {importModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-4xl p-6 space-y-4 shadow-xl my-8">
+      {importModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-4xl p-6 space-y-4 shadow-2xl my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <FileUp className="text-purple-600" size={24} />
@@ -1610,9 +1611,9 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                   <button
                     type="button"
                     onClick={() => downloadImportTemplate('csv')}
-                    className="px-3 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 flex items-center gap-1.5 shadow-2xs"
+                    className="px-3 py-2 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 flex items-center gap-1.5 shadow-2xs"
                   >
-                    <Download size={15} />
+                    <FileSpreadsheet size={15} />
                     <span>Download CSV (.csv)</span>
                   </button>
                 </div>
@@ -1786,13 +1787,14 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 1. Dynamic Category Add / Edit Service Modal (CREATE & UPDATE) */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-xl my-8">
+      {modalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-2xl my-8">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
@@ -2608,13 +2610,14 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 2. Detail View Modal (READ DETAIL) */}
-      {detailItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
+      {detailItem && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-2xl my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700">
@@ -2769,13 +2772,14 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 3. Delete / Archive Modal (DELETE / ARCHIVE) */}
-      {deleteItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
+      {deleteItem && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl my-8">
             <div className="flex items-center gap-3 text-rose-600">
               <AlertCircle size={24} />
               <h3 className="font-bold text-slate-900 text-base">Confirm Service Archival</h3>
@@ -2801,7 +2805,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

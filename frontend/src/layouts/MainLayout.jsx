@@ -327,9 +327,8 @@ export default function MainLayout() {
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/80
+        fixed lg:static inset-y-0 left-0 ${sidebarOpen ? 'z-50 translate-x-0' : 'z-20 -translate-x-full lg:translate-x-0'} w-64 bg-white border-r border-slate-200/80
         flex flex-col justify-between transition-transform duration-200 ease-in-out shadow-xs
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex flex-col h-full overflow-hidden">
           {/* Sidebar Header */}
@@ -415,7 +414,7 @@ export default function MainLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between shrink-0 z-30">
+        <header className="h-16 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between shrink-0 relative z-20">
           <div className="flex items-center gap-3">
             <button
               className="lg:hidden p-2 text-slate-500 hover:text-slate-900"
