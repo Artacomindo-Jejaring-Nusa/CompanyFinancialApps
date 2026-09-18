@@ -143,4 +143,42 @@ func seedInitialData() {
 		_ = userRepo.Create(ctx, adminUser)
 		logger.Log.Info("Seeded default admin user (admin / admin123)")
 	}
+
+	// Seed Service Type: Kartu Pascabayar & GSM if not exists
+	var stCount int64
+	database.DB.Model(&domain.ServiceType{}).Where("name = ?", "Kartu Pascabayar & GSM").Count(&stCount)
+	if stCount == 0 {
+		newST := domain.ServiceType{
+			ID:     5,
+			Name:   "Kartu Pascabayar & GSM",
+			Status: "ACTIVE",
+		}
+		_ = database.DB.Create(&newST)
+		logger.Log.Info("Seeded service type: Kartu Pascabayar & GSM")
+	}
+
+	// Seed Popular Cellular Providers if not exist
+	cellularProviders := []struct {
+		Code string
+		Name string
+	}{
+		{"PROV-TSEL", "Telkomsel (Halo / Corporate IoT SIM)"},
+		{"PROV-ISAT", "Indosat Ooredoo Hutchison (Matrix / Postpaid)"},
+		{"PROV-XL", "XL Prioritas (Axiata)"},
+		{"PROV-SMART", "Smartfren Pascabayar"},
+	}
+
+	for _, cp := range cellularProviders {
+		var pCount int64
+		database.DB.Model(&domain.Provider{}).Where("provider_code = ? OR provider_name = ?", cp.Code, cp.Name).Count(&pCount)
+		if pCount == 0 {
+			newP := domain.Provider{
+				ProviderCode: cp.Code,
+				ProviderName: cp.Name,
+				Status:       "ACTIVE",
+			}
+			_ = database.DB.Create(&newP)
+			logger.Log.Info("Seeded cellular provider: " + cp.Name)
+		}
+	}
 }

@@ -88,7 +88,11 @@ INSERT INTO providers (id, provider_code, provider_name, contact, status) VALUES
 (10, 'PROV-MYR', 'MyRepublic', 'Enterprise Rep', 'ACTIVE'),
 (11, 'PROV-MOR', 'Moratelindo', 'Billing Rep', 'ACTIVE'),
 (12, 'PROV-LIN', 'Lintasarta', 'Enterprise Rep', 'ACTIVE'),
-(13, 'PROV-JAG', 'Jagoweb', 'Cloud Support', 'ACTIVE')
+(13, 'PROV-JAG', 'Jagoweb', 'Cloud Support', 'ACTIVE'),
+(14, 'PROV-TSEL', 'Telkomsel (Halo / Corporate IoT SIM)', 'Corporate Support', 'ACTIVE'),
+(15, 'PROV-ISAT', 'Indosat Ooredoo Hutchison (Matrix / Postpaid)', 'Corporate Support', 'ACTIVE'),
+(16, 'PROV-XL', 'XL Prioritas (Axiata)', 'Enterprise Support', 'ACTIVE'),
+(17, 'PROV-SMART', 'Smartfren Pascabayar', 'Corporate Support', 'ACTIVE')
 ON CONFLICT (id) DO UPDATE SET 
   provider_name = EXCLUDED.provider_name,
   provider_code = EXCLUDED.provider_code;
@@ -97,7 +101,8 @@ INSERT INTO service_types (id, name, status) VALUES
 (1, 'Fiber Optic Dedicated', 'ACTIVE'),
 (2, 'VSAT Satellite', 'ACTIVE'),
 (3, 'Cloud VPS & Hosting', 'ACTIVE'),
-(4, 'Software SaaS License', 'ACTIVE')
+(4, 'Software SaaS License', 'ACTIVE'),
+(5, 'Kartu Pascabayar & GSM', 'ACTIVE')
 ON CONFLICT (id) DO NOTHING;
 
 -- Services Table

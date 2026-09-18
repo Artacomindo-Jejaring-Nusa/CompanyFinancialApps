@@ -33,6 +33,7 @@ import {
   Monitor,
   ArrowRight,
   Store,
+  Smartphone,
   Loader2
 } from 'lucide-react';
 
@@ -269,6 +270,7 @@ export default function MainLayout() {
         { name: 'Tagihan Internet & FO', path: '/services/internet', icon: Globe },
         { name: 'Tagihan Hosting & Cloud', path: '/services/hosting', icon: Cloud },
         { name: 'Tagihan Software & SaaS', path: '/services/software', icon: Laptop },
+        { name: 'Tagihan Kartu Pascabayar', path: '/services/cellular', icon: Smartphone },
         { name: 'Semua Services Registry', path: '/services', icon: Layers },
       ],
     },

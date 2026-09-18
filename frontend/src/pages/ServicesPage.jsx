@@ -8,31 +8,32 @@ import {
   Layers, 
   Edit3, 
   Trash2, 
-  Eye,
+  Eye, 
   X, 
-  ChevronRight,
-  Building2,
-  Calendar,
-  Globe,
-  Cloud,
-  Laptop,
-  Server,
-  Filter,
-  CheckCircle2,
-  AlertCircle,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  RotateCcw,
-  MapPin,
-  Store,
-  FileSpreadsheet,
-  Upload,
-  FileUp,
-  FileText,
-  Download,
-  HelpCircle,
-  Info
+  ChevronRight, 
+  Building2, 
+  Calendar, 
+  Globe, 
+  Cloud, 
+  Laptop, 
+  Smartphone,
+  Server, 
+  Filter, 
+  CheckCircle2, 
+  AlertCircle, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown, 
+  RotateCcw, 
+  MapPin, 
+  Store, 
+  FileSpreadsheet, 
+  Upload, 
+  FileUp, 
+  FileText, 
+  Download, 
+  HelpCircle, 
+  Info 
 } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
@@ -63,12 +64,25 @@ export const isSoftwareService = (s) => {
   return false;
 };
 
+export const isCellularService = (s) => {
+  const typeName = (s?.service_type?.name || s?.service_type_name || '').toLowerCase();
+  if (typeName.includes('pascabayar') || typeName.includes('seluler') || typeName.includes('gsm') || typeName.includes('sim card') || typeName.includes('simcard') || typeName.includes('cellular') || typeName.includes('halo') || typeName.includes('kartu')) {
+    return true;
+  }
+  const sName = (s?.service_name || '').toLowerCase();
+  if (sName.includes('pascabayar') || sName.includes('halo') || sName.includes('matrix') || sName.includes('prioritas') || sName.includes('sim card') || sName.includes('simcard') || sName.includes('gsm')) {
+    return true;
+  }
+  return false;
+};
+
 export const isInternetService = (s) => {
-  if (isSoftwareService(s) || isHostingService(s)) return false;
+  if (isSoftwareService(s) || isHostingService(s) || isCellularService(s)) return false;
   return true;
 };
 
 export const getServiceCategory = (s) => {
+  if (isCellularService(s)) return 'CELLULAR';
   if (isSoftwareService(s)) return 'SOFTWARE';
   if (isHostingService(s)) return 'HOSTING';
   return 'INTERNET';
@@ -233,6 +247,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
           fetchedData = fetchedData.filter(isHostingService);
         } else if (categoryFilter === 'SOFTWARE') {
           fetchedData = fetchedData.filter(isSoftwareService);
+        } else if (categoryFilter === 'CELLULAR') {
+          fetchedData = fetchedData.filter(isCellularService);
         }
 
         if (filterCycle) {
@@ -358,6 +374,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       matchingSt = serviceTypes.find(isHostingService);
     } else if (targetCat === 'SOFTWARE') {
       matchingSt = serviceTypes.find(isSoftwareService);
+    } else if (targetCat === 'CELLULAR') {
+      matchingSt = serviceTypes.find(isCellularService);
     } else {
       matchingSt = serviceTypes.find(isInternetService);
     }
@@ -428,6 +446,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
       defaultSt = serviceTypes.find(isHostingService);
     } else if (targetCategory === 'SOFTWARE') {
       defaultSt = serviceTypes.find(isSoftwareService);
+    } else if (targetCategory === 'CELLULAR') {
+      defaultSt = serviceTypes.find(isCellularService);
     } else {
       defaultSt = serviceTypes.find(isInternetService);
     }
@@ -523,13 +543,15 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         calculatedDueDay = parseInt(formData.due_day) || new Date(formData.start_date).getDate();
       }
 
-      // Generate CID fallback for Hosting / Software if left blank
+      // Generate CID fallback for Hosting / Software / Cellular if left blank
       let effectiveCID = formData.cid ? formData.cid.trim() : '';
       if (!effectiveCID) {
         if (formCategory === 'HOSTING') {
           effectiveCID = formData.attributes?.ip_address ? `HOST-${formData.attributes.ip_address}` : `HOST-${Date.now()}`;
         } else if (formCategory === 'SOFTWARE') {
           effectiveCID = formData.contract_number ? `SW-${formData.contract_number}` : `SW-${Date.now()}`;
+        } else if (formCategory === 'CELLULAR') {
+          effectiveCID = formData.contract_number ? `SIM-${formData.contract_number}` : `SIM-${Date.now()}`;
         } else {
           effectiveCID = `CID-${Date.now()}`;
         }
@@ -885,6 +907,11 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
           title: 'Tagihan Software & Lisensi SaaS',
           desc: 'Manajemen terpisah untuk lisensi perangkat lunak & aplikasi SaaS (Google Workspace, Office 365, Zoom).',
         };
+      case 'CELLULAR':
+        return {
+          title: 'Tagihan Kartu Pascabayar & GSM Seluler',
+          desc: 'Manajemen pemantauan tagihan nomor kartu pascabayar (Telkomsel Halo, Indosat Matrix/Pascabayar, XL Prioritas, Smartfren, IoT SIM).',
+        };
       default:
         return {
           title: 'Semua Services & Subscriptions Registry',
@@ -899,6 +926,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
   const internetCount = countSource.filter(isInternetService).length;
   const hostingCount = countSource.filter(isHostingService).length;
   const softwareCount = countSource.filter(isSoftwareService).length;
+  const cellularCount = countSource.filter(isCellularService).length;
 
   return (
     <div className="space-y-6">
@@ -940,6 +968,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
           { key: 'INTERNET', label: 'Tagihan Internet & FO Toko', icon: Globe, count: internetCount },
           { key: 'HOSTING', label: 'Tagihan Hosting & Cloud', icon: Cloud, count: hostingCount },
           { key: 'SOFTWARE', label: 'Tagihan Software & SaaS', icon: Laptop, count: softwareCount },
+          { key: 'CELLULAR', label: 'Tagihan Kartu Pascabayar', icon: Smartphone, count: cellularCount },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -1202,7 +1231,53 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                   </thead>
                 )}
 
-                {/* 4. Dedicated Header for ALL Services */}
+                {/* 4. Dedicated Header for CELLULAR Services */}
+                {categoryFilter === 'CELLULAR' && (
+                  <thead className="bg-slate-50 text-slate-700 font-semibold text-[12px] uppercase tracking-wider border-b border-slate-200 select-none">
+                    <tr>
+                      <th onClick={() => handleSort('cid')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center gap-1">
+                          <span>Nomor Kartu / MSISDN</span>
+                          {renderSortIcon('cid')}
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('service_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center gap-1">
+                          <span>Label / Pengguna Kartu</span>
+                          {renderSortIcon('service_name')}
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('provider_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center gap-1">
+                          <span>Operator Seluler</span>
+                          {renderSortIcon('provider_name')}
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4">Paket / Kuota</th>
+                      <th onClick={() => handleSort('customer_name')} className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center gap-1">
+                          <span>Pelanggan / Entitas</span>
+                          {renderSortIcon('customer_name')}
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('amount')} className="py-3.5 px-4 text-right cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Total Tagihan Bulanan</span>
+                          {renderSortIcon('amount')}
+                        </div>
+                      </th>
+                      <th onClick={() => handleSort('status')} className="py-3.5 px-4 text-center cursor-pointer hover:bg-slate-100 transition-colors group">
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Status</span>
+                          {renderSortIcon('status')}
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4 text-center">Aksi (CRUD)</th>
+                    </tr>
+                  </thead>
+                )}
+
+                {/* 5. Dedicated Header for ALL Services */}
                 {categoryFilter === 'ALL' && (
                   <thead className="bg-slate-50 text-slate-700 font-semibold text-[12px] uppercase tracking-wider border-b border-slate-200 select-none">
                     <tr>
@@ -1369,7 +1444,47 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                           </>
                         )}
 
-                        {/* 4. ALL Body Row */}
+                        {/* 4. CELLULAR Body Row */}
+                        {categoryFilter === 'CELLULAR' && (() => {
+                          const chargeVal = Number(item.attributes?.bank_charge || 0);
+                          const totalVal = Number(item.amount || 0) + chargeVal;
+
+                          return (
+                            <>
+                              <td className="py-3.5 px-4 font-mono font-bold text-[13px] text-emerald-700 select-all">
+                                <div className="flex items-center gap-1.5">
+                                  <Smartphone size={14} className="text-emerald-600 shrink-0" />
+                                  <span>{item.cid || '-'}</span>
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-slate-900 text-[14px] leading-tight">{item.service_name}</div>
+                                {item.pic && <div className="text-[11px] text-slate-500 mt-0.5">PIC: {item.pic}</div>}
+                              </td>
+                              <td className="py-3.5 px-4 font-semibold text-slate-900">
+                                {item.provider?.provider_name}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {item.attributes?.package_name || 'Pascabayar Corporate'}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 font-medium text-slate-800">
+                                {item.customer?.customer_name}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 text-[14px]">
+                                {formatIDR(totalVal)}
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {item.status}
+                                </span>
+                              </td>
+                            </>
+                          );
+                        })()}
+
+                        {/* 5. ALL Body Row */}
                         {categoryFilter === 'ALL' && (
                           <>
                             <td className="py-3.5 px-4">
@@ -1694,7 +1809,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             </div>
 
             {/* Category Selector Tabs inside Modal */}
-            <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-100 rounded-lg">
               <button
                 type="button"
                 onClick={() => switchFormCategory('INTERNET')}
@@ -1705,7 +1820,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                 }`}
               >
                 <Globe size={14} />
-                <span>Internet & FO Toko</span>
+                <span>Internet & FO</span>
               </button>
               <button
                 type="button"
@@ -1730,6 +1845,18 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               >
                 <Laptop size={14} />
                 <span>Software & SaaS</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchFormCategory('CELLULAR')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
+                  formCategory === 'CELLULAR'
+                    ? 'bg-white text-teal-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Smartphone size={14} />
+                <span>Kartu Pascabayar</span>
               </button>
             </div>
 
@@ -2248,7 +2375,221 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                 </div>
               )}
 
-              {/* Form Action Buttons */}
+              {formCategory === 'CELLULAR' && (
+                <div className="space-y-3.5 bg-cyan-50/40 p-4 rounded-xl border border-cyan-100">
+                  <div className="flex items-center gap-2 text-cyan-800 font-bold text-xs pb-1 border-b border-cyan-100">
+                    <Smartphone size={15} />
+                    Informasi Kartu Pascabayar & GSM Cellular
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Nama / Label Kartu & Pengguna *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. SIM Router IoT Toko Alfa / HP Direksi"
+                        value={formData.service_name || ''}
+                        onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Nomor Kartu / MSISDN *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 081198765432 / 081234567890"
+                        value={formData.cid || ''}
+                        onChange={(e) => setFormData({ ...formData, cid: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-cyan-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Operator Seluler *</label>
+                      <select
+                        required
+                        value={formData.provider_id || ''}
+                        onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      >
+                        <option value="">-- Pilih Provider --</option>
+                        {providers.map((p) => (
+                          <option key={p.provider_id} value={p.provider_id}>
+                            {p.provider_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Pelanggan / Entitas *</label>
+                      <select
+                        required
+                        value={formData.customer_id || ''}
+                        onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      >
+                        <option value="">-- Pilih Customer --</option>
+                        {customers.map((c) => (
+                          <option key={c.customer_id} value={c.customer_id}>
+                            {c.customer_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Tipe Service</label>
+                      <select
+                        value={formData.service_type_id || ''}
+                        onChange={(e) => setFormData({ ...formData, service_type_id: parseInt(e.target.value) || 5 })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      >
+                        {serviceTypes
+                          .filter((st) => st.type_name?.toLowerCase().includes('kartu') || st.type_name?.toLowerCase().includes('gsm') || st.type_name?.toLowerCase().includes('cellular') || st.service_type_id === 5)
+                          .map((st) => (
+                            <option key={st.service_type_id} value={st.service_type_id}>
+                              {st.type_name}
+                            </option>
+                          ))}
+                        {!serviceTypes.some((st) => st.service_type_id === 5) && (
+                          <option value="5">Kartu Pascabayar & GSM</option>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Paket Data / Kuota / Tarif *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Halo Corporate 50GB / Matrix 100GB"
+                        value={formData.attributes?.package_name || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            attributes: { ...formData.attributes, package_name: e.target.value },
+                          })
+                        }
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Nomor Akun Billing / ID Pelanggan</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 1000987654 / TEL-998811"
+                        value={formData.contract_number || ''}
+                        onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">PIC Pemegang Kartu / User</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Budi Santoso (IT Dept)"
+                        value={formData.pic || ''}
+                        onChange={(e) => setFormData({ ...formData, pic: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Perangkat / Lokasi Penggunaan</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Router Mikrotik DC / Tablet Kasir"
+                        value={formData.location || ''}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Siklus Penagihan</label>
+                      <select
+                        value={formData.billing_cycle || 'MONTHLY'}
+                        onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900"
+                      >
+                        <option value="MONTHLY">Bulanan (Monthly)</option>
+                        <option value="YEARLY">Tahunan (Yearly)</option>
+                        <option value="ONE_TIME">Sekali Bayar (One-time)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700">Tgl Jatuh Tempo Tagihan</label>
+                      <input
+                        type="date"
+                        value={formData.due_day ? `2026-01-${String(formData.due_day).padStart(2, '0')}` : '2026-01-20'}
+                        onChange={(e) => {
+                          const date = new Date(e.target.value);
+                          if (!isNaN(date.getDate())) {
+                            setFormData({ ...formData, due_day: date.getDate() });
+                          }
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 text-xs text-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Financial calculation */}
+                  <div className="space-y-2 pt-2 border-t border-cyan-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">Komponen Tarif Tagihan Pascabayar</span>
+                      <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11%</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">Tarif Dasar / Paket (HPP) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="e.g. 150000"
+                          value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
+                          onChange={(e) => handleHppChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">PPN 11% (IDR)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 16500"
+                          value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
+                          onChange={(e) => handleTaxChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700">Biaya Admin / Meterai</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 5000"
+                          value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
+                          onChange={(e) => handleBankChargeChange(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-cyan-50/70 border border-cyan-100 rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold text-cyan-900">Total Tagihan Pascabayar:</span>
+                      <span className="font-mono font-bold text-sm text-cyan-700">
+                        {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -2288,7 +2629,46 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
             <div className="space-y-3 text-xs">
               {/* Dynamic Detail based on category */}
-              {isHostingService(detailItem) ? (
+              {isCellularService(detailItem) ? (
+                <div className="grid grid-cols-2 gap-3 bg-cyan-50/50 p-3 rounded-lg border border-cyan-100">
+                  <div>
+                    <div className="text-slate-500 font-medium">Nomor Kartu / MSISDN</div>
+                    <div className="font-mono font-bold text-cyan-800 mt-0.5">{detailItem.cid}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Operator Seluler</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.provider?.provider_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Paket / Kuota</div>
+                    <div className="font-bold text-cyan-700 mt-0.5">{detailItem.attributes?.package_name || 'Postpaid Plan'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Customer Entity</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.customer?.customer_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">PIC Pemegang Kartu</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.pic || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Perangkat / Lokasi</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.location || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Nomor Akun Billing</div>
+                    <div className="font-mono font-bold text-slate-900 mt-0.5">{detailItem.contract_number || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Siklus & Due Date</div>
+                    <div className="font-bold text-slate-900 mt-0.5">{detailItem.billing_cycle} (Tgl {detailItem.due_day || 20})</div>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-cyan-100">
+                    <div className="text-slate-500 font-medium">Total Tagihan Bulanan</div>
+                    <div className="font-mono font-bold text-cyan-700 text-sm mt-0.5">{formatIDR(detailItem.amount)} / {detailItem.billing_cycle}</div>
+                  </div>
+                </div>
+              ) : isHostingService(detailItem) ? (
                 <div className="grid grid-cols-2 gap-3 bg-purple-50/50 p-3 rounded-lg border border-purple-100">
                   <div>
                     <div className="text-slate-500 font-medium">Hosting Provider</div>

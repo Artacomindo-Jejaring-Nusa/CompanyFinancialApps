@@ -58,6 +58,7 @@ export default function App() {
           <Route path="services/internet" element={<ServicesPage defaultCategory="INTERNET" />} />
           <Route path="services/hosting" element={<ServicesPage defaultCategory="HOSTING" />} />
           <Route path="services/software" element={<ServicesPage defaultCategory="SOFTWARE" />} />
+          <Route path="services/cellular" element={<ServicesPage defaultCategory="CELLULAR" />} />
 
           <Route path="master-data" element={<MasterDataPage />} />
           <Route path="reports" element={<ReportsPage />} />
