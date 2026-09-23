@@ -10,6 +10,7 @@ import PaymentMonitoringPage from './pages/PaymentMonitoringPage';
 import VendorInvoicesPage from './pages/VendorInvoicesPage';
 import TVCalendarDisplayPage from './pages/TVCalendarDisplayPage';
 import ServicesPage from './pages/ServicesPage';
+import ProjectsPage from './pages/ProjectsPage';
 import MasterDataPage from './pages/MasterDataPage';
 import ReportsPage from './pages/ReportsPage';
 import UserManagementPage from './pages/UserManagementPage';
@@ -52,6 +53,10 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="invoices" element={<VendorInvoicesPage />} />
           <Route path="payments" element={<PaymentMonitoringPage />} />
+
+          {/* Projects & Sub-Projects Routes (Mekari Jurnal Style) */}
+          <Route path="projects" element={<ProjectsPage defaultTab="hierarchy" />} />
+          <Route path="projects/costing" element={<ProjectsPage defaultTab="costing" />} />
           
           {/* Services Category Routes */}
           <Route path="services" element={<ServicesPage defaultCategory="ALL" />} />

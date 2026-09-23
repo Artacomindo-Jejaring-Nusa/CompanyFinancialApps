@@ -34,7 +34,12 @@ import {
   ArrowRight,
   Store,
   Smartphone,
-  Loader2
+  Loader2,
+  FolderTree,
+  FolderKanban,
+  ChevronDown,
+  ChevronRight,
+  PieChart
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -42,6 +47,14 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedNavItems, setExpandedNavItems] = useState({ '/projects': true });
+
+  const toggleNavExpand = (path) => {
+    setExpandedNavItems(prev => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
 
   // Global Search states
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -257,7 +270,7 @@ export default function MainLayout() {
 
   const navigationGroups = [
     {
-      title: 'CORE & INVOICES',
+      title: 'CORE & EXECUTIVE',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Tagihan Invoice Masuk', path: '/invoices', icon: Receipt },
@@ -265,7 +278,22 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'SERVICES & SUBSCRIPTIONS',
+      title: 'PROJECTS & COSTING',
+      items: [
+        { 
+          name: 'Proyek & Sub-Proyek', 
+          path: '/projects', 
+          icon: FolderTree,
+          badge: 'New',
+          subItems: [
+            { name: 'Hierarki Proyek', path: '/projects' },
+            { name: 'Costing & Profitabilitas', path: '/projects/costing' },
+          ]
+        },
+      ],
+    },
+    {
+      title: 'EXPENSES & SUBSCRIPTIONS',
       items: [
         { name: 'Tagihan Internet & FO', path: '/services/internet', icon: Globe },
         { name: 'Tagihan Hosting & Cloud', path: '/services/hosting', icon: Cloud },
@@ -284,7 +312,7 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'REPORTS',
+      title: 'FINANCIAL REPORTS',
       items: [
         { name: 'Financial Reports', path: '/reports', icon: BarChart3 },
       ],
@@ -292,6 +320,7 @@ export default function MainLayout() {
     {
       title: 'MASTER DATA',
       items: [
+        { name: 'Master Proyek', path: '/projects', icon: FolderTree },
         { name: 'Customers', path: '/master-data?tab=CUSTOMERS', icon: Building2 },
         { name: 'Providers / Vendors', path: '/master-data?tab=PROVIDERS', icon: Truck },
       ],
@@ -360,21 +389,88 @@ export default function MainLayout() {
                   </div>
                   {group.items.map((item) => {
                     const Icon = item.icon;
-                    const active = isLinkActive(item.path);
+                    const hasSub = item.subItems && item.subItems.length > 0;
+                    const isExpanded = !!expandedNavItems[item.path];
+                    const active = isLinkActive(item.path) || (hasSub && item.subItems.some(sub => isLinkActive(sub.path)));
+
+                    if (hasSub) {
+                      return (
+                        <div key={item.path} className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleNavExpand(item.path)}
+                            className={`
+                              w-full flex items-center justify-between px-3 py-2.5 rounded-lg font-semibold text-xs transition-colors
+                              ${active 
+                                ? 'bg-blue-50/80 text-blue-700 font-bold' 
+                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
+                            `}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon size={16} className={active ? 'text-blue-600' : 'text-slate-400'} />
+                              <span>{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {item.badge && (
+                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 font-bold text-[9px] rounded uppercase tracking-wider">
+                                  {item.badge}
+                                </span>
+                              )}
+                              {isExpanded ? (
+                                <ChevronDown size={14} className="text-slate-400" />
+                              ) : (
+                                <ChevronRight size={14} className="text-slate-400" />
+                              )}
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="ml-5 pl-3 border-l-2 border-slate-200 space-y-1 pt-1">
+                              {item.subItems.map((sub) => {
+                                const subActive = isLinkActive(sub.path);
+                                return (
+                                  <NavLink
+                                    key={sub.path}
+                                    to={sub.path}
+                                    onClick={() => setSidebarOpen(false)}
+                                    className={`
+                                      flex items-center px-2.5 py-1.5 rounded-md font-semibold text-[11px] transition-colors
+                                      ${subActive
+                                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}
+                                    `}
+                                  >
+                                    <span>{sub.name}</span>
+                                  </NavLink>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
                       <NavLink
                         key={item.path}
                         to={item.path}
                         onClick={() => setSidebarOpen(false)}
                         className={`
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold text-xs transition-colors
+                          flex items-center justify-between px-3 py-2.5 rounded-lg font-semibold text-xs transition-colors
                           ${active 
                             ? 'bg-blue-50 text-blue-600 font-bold' 
                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
                         `}
                       >
-                        <Icon size={16} className={active ? 'text-blue-600' : 'text-slate-400'} />
-                        <span>{item.name}</span>
+                        <div className="flex items-center gap-3">
+                          <Icon size={16} className={active ? 'text-blue-600' : 'text-slate-400'} />
+                          <span>{item.name}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 font-bold text-[9px] rounded uppercase tracking-wider">
+                            {item.badge}
+                          </span>
+                        )}
                       </NavLink>
                     );
                   })}
