@@ -47,7 +47,10 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedNavItems, setExpandedNavItems] = useState({ '/projects': true });
+  const [expandedNavItems, setExpandedNavItems] = useState({ 
+    '/projects': true, 
+    '/services': true 
+  });
 
   const toggleNavExpand = (path) => {
     setExpandedNavItems(prev => ({
@@ -286,8 +289,8 @@ export default function MainLayout() {
           icon: FolderTree,
           badge: 'New',
           subItems: [
-            { name: 'Hierarki Proyek', path: '/projects' },
-            { name: 'Costing & Profitabilitas', path: '/projects/costing' },
+            { name: 'Hierarki Proyek', path: '/projects', icon: FolderTree },
+            { name: 'Costing & Profitabilitas', path: '/projects/costing', icon: PieChart },
           ]
         },
       ],
@@ -295,11 +298,19 @@ export default function MainLayout() {
     {
       title: 'EXPENSES & SUBSCRIPTIONS',
       items: [
-        { name: 'Tagihan Internet & FO', path: '/services/internet', icon: Globe },
-        { name: 'Tagihan Hosting & Cloud', path: '/services/hosting', icon: Cloud },
-        { name: 'Tagihan Software & SaaS', path: '/services/software', icon: Laptop },
-        { name: 'Tagihan Kartu Pascabayar', path: '/services/cellular', icon: Smartphone },
-        { name: 'Semua Services Registry', path: '/services', icon: Layers },
+        { 
+          name: 'Tagihan & Langganan', 
+          path: '/services', 
+          icon: Layers,
+          badge: 'OPEX',
+          subItems: [
+            { name: 'Semua Layanan Registry', path: '/services', icon: Layers },
+            { name: 'Tagihan Internet & FO', path: '/services/internet', icon: Globe },
+            { name: 'Tagihan Hosting & Cloud', path: '/services/hosting', icon: Cloud },
+            { name: 'Tagihan Software & SaaS', path: '/services/software', icon: Laptop },
+            { name: 'Tagihan Kartu Pascabayar', path: '/services/cellular', icon: Smartphone },
+          ]
+        },
       ],
     },
     {
@@ -339,8 +350,19 @@ export default function MainLayout() {
     if (itemPath.includes('?')) {
       return currentUrl === itemPath;
     }
-    return location.pathname === itemPath && !location.search;
+    return location.pathname === itemPath;
   };
+
+  // Auto-expand accordion if current route matches any child sub-items
+  useEffect(() => {
+    navigationGroups.forEach(group => {
+      group.items.forEach(item => {
+        if (item.subItems && item.subItems.some(sub => isLinkActive(sub.path))) {
+          setExpandedNavItems(prev => ({ ...prev, [item.path]: true }));
+        }
+      });
+    });
+  }, [location.pathname, location.search]);
 
   const totalResults = globalResults.services.length + globalResults.schedules.length;
 
@@ -428,18 +450,25 @@ export default function MainLayout() {
                             <div className="ml-5 pl-3 border-l-2 border-slate-200 space-y-1 pt-1">
                               {item.subItems.map((sub) => {
                                 const subActive = isLinkActive(sub.path);
+                                const SubIcon = sub.icon;
                                 return (
                                   <NavLink
                                     key={sub.path}
                                     to={sub.path}
                                     onClick={() => setSidebarOpen(false)}
                                     className={`
-                                      flex items-center px-2.5 py-1.5 rounded-md font-semibold text-[11px] transition-colors
+                                      flex items-center gap-2 px-2.5 py-1.5 rounded-md font-semibold text-[11px] transition-colors
                                       ${subActive
                                         ? 'bg-blue-600 text-white font-bold shadow-2xs'
                                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}
                                     `}
                                   >
+                                    {SubIcon && (
+                                      <SubIcon 
+                                        size={13} 
+                                        className={`shrink-0 ${subActive ? 'text-white' : 'text-slate-400'}`} 
+                                      />
+                                    )}
                                     <span>{sub.name}</span>
                                   </NavLink>
                                 );
