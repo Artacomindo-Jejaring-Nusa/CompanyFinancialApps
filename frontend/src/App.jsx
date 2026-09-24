@@ -54,9 +54,9 @@ export default function App() {
           <Route path="invoices" element={<VendorInvoicesPage />} />
           <Route path="payments" element={<PaymentMonitoringPage />} />
 
-          {/* Projects & Sub-Projects Routes (Mekari Jurnal Style) */}
-          <Route path="projects" element={<ProjectsPage defaultTab="hierarchy" />} />
-          <Route path="projects/costing" element={<ProjectsPage defaultTab="costing" />} />
+          {/* Projects & Sub-Projects Routes (Preserved for future HRIS ontime.jelantik.com integration) */}
+          <Route path="projects" element={<Navigate to="/dashboard" replace />} />
+          <Route path="projects/costing" element={<Navigate to="/dashboard" replace />} />
           
           {/* Services Category Routes */}
           <Route path="services" element={<ServicesPage defaultCategory="ALL" />} />

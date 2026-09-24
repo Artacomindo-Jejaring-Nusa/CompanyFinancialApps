@@ -48,7 +48,6 @@ export default function MainLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedNavItems, setExpandedNavItems] = useState({ 
-    '/projects': true, 
     '/services': true 
   });
 
@@ -281,21 +280,6 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'PROJECTS & COSTING',
-      items: [
-        { 
-          name: 'Proyek & Sub-Proyek', 
-          path: '/projects', 
-          icon: FolderTree,
-          badge: 'New',
-          subItems: [
-            { name: 'Hierarki Proyek', path: '/projects', icon: FolderTree },
-            { name: 'Costing & Profitabilitas', path: '/projects/costing', icon: PieChart },
-          ]
-        },
-      ],
-    },
-    {
       title: 'EXPENSES & SUBSCRIPTIONS',
       items: [
         { 
@@ -331,7 +315,6 @@ export default function MainLayout() {
     {
       title: 'MASTER DATA',
       items: [
-        { name: 'Master Proyek', path: '/projects', icon: FolderTree },
         { name: 'Customers', path: '/master-data?tab=CUSTOMERS', icon: Building2 },
         { name: 'Providers / Vendors', path: '/master-data?tab=PROVIDERS', icon: Truck },
       ],
