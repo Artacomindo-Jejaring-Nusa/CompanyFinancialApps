@@ -73,10 +73,11 @@ export default {
         "xs": "4px"
       },
       fontFamily: {
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "'Segoe UI'", "Roboto", "sans-serif"],
         "body-lg": ["Inter", "sans-serif"],
         "label-md": ["Inter", "sans-serif"],
         "body-md": ["Inter", "sans-serif"],
-        "data-mono": ["JetBrains Mono", "monospace"],
+        "data-mono": ["Inter", "sans-serif"],
         "headline-md": ["Inter", "sans-serif"],
         "headline-lg": ["Inter", "sans-serif"],
         "display": ["Inter", "sans-serif"],

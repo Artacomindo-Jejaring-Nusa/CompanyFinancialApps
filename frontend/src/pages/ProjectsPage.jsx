@@ -490,11 +490,11 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
             </div>
           </div>
           <div className="mt-2">
-            <span className="font-mono font-bold text-lg text-slate-900">{formatIDR(totalBudget)}</span>
+            <span className="font-bold text-lg text-slate-900 tracking-tight">{formatIDR(totalBudget)}</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
             <span>Nilai Kontrak Klien:</span>
-            <span className="font-mono font-bold text-purple-700">{formatIDR(totalContract)}</span>
+            <span className="font-bold text-purple-700">{formatIDR(totalContract)}</span>
           </div>
         </div>
 
@@ -507,7 +507,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
             </div>
           </div>
           <div className="mt-2">
-            <span className="font-mono font-bold text-lg text-amber-700">{formatIDR(totalRealized)}</span>
+            <span className="font-bold text-lg text-amber-700 tracking-tight">{formatIDR(totalRealized)}</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
             <span>Serapan Anggaran:</span>
@@ -526,7 +526,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
             </div>
           </div>
           <div className="mt-2">
-            <span className="font-mono font-bold text-lg text-emerald-700">{formatIDR(totalRemaining)}</span>
+            <span className="font-bold text-lg text-emerald-700 tracking-tight">{formatIDR(totalRemaining)}</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
             <span>Status Likuiditas:</span>
@@ -547,7 +547,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
         >
           <FolderTree size={16} />
           <span>Hierarki Proyek & Sub-Proyek</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 font-mono">
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold">
             {filteredProjects.length}
           </span>
         </button>
@@ -640,7 +640,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
 
                       <div className="space-y-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono font-bold text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                          <span className="font-bold text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
                             {parent.code}
                           </span>
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -665,12 +665,12 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                     <div className="flex flex-wrap lg:flex-nowrap items-center gap-6 lg:gap-8 justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200">
                       <div>
                         <div className="text-[10px] font-bold uppercase text-slate-400">Pagu Anggaran (Budget)</div>
-                        <div className="font-mono font-bold text-xs text-slate-900">{formatIDR(parent.budget)}</div>
+                        <div className="font-bold text-xs text-slate-900">{formatIDR(parent.budget)}</div>
                       </div>
 
                       <div>
                         <div className="text-[10px] font-bold uppercase text-slate-400">Realisasi Biaya (AP)</div>
-                        <div className="font-mono font-bold text-xs text-amber-700">{formatIDR(parent.realized_cost)}</div>
+                        <div className="font-bold text-xs text-amber-700">{formatIDR(parent.realized_cost)}</div>
                       </div>
 
                       <div className="w-28">
@@ -750,7 +750,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                               >
                                 <div className="space-y-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-mono font-bold text-[11px] px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded">
+                                    <span className="font-bold text-[11px] px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded">
                                       {sub.code}
                                     </span>
                                     <h3 className="font-bold text-slate-900 text-xs sm:text-sm">
@@ -778,12 +778,12 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                                 <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                                   <div>
                                     <div className="text-[10px] text-slate-400 font-semibold">Sub-Budget</div>
-                                    <div className="font-mono font-bold text-xs text-slate-900">{formatIDR(sub.budget)}</div>
+                                    <div className="font-bold text-xs text-slate-900">{formatIDR(sub.budget)}</div>
                                   </div>
 
                                   <div>
                                     <div className="text-[10px] text-slate-400 font-semibold">Terpakai</div>
-                                    <div className="font-mono font-bold text-xs text-amber-700">{formatIDR(sub.realized_cost)}</div>
+                                    <div className="font-bold text-xs text-amber-700">{formatIDR(sub.realized_cost)}</div>
                                   </div>
 
                                   <div className="flex items-center gap-1">
@@ -856,7 +856,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                     <th className="p-3 text-center">Margin %</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
+                <tbody className="divide-y divide-slate-100 font-sans">
                   {projects.map((p) => {
                     const foEst = (p.realized_cost * 0.7);
                     const cloudEst = (p.realized_cost * 0.3);
@@ -987,7 +987,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                     placeholder="e.g. PRJ-ALFA-2026 / SUB-ALFA-JABAR"
                     value={formData.project_code}
                     onChange={(e) => setFormData({ ...formData, project_code: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-blue-700"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-bold text-blue-700"
                   />
                 </div>
                 <div>
@@ -1023,7 +1023,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                     placeholder="e.g. 850000000"
                     value={formData.budget}
                     onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-emerald-700"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-bold text-emerald-700"
                   />
                 </div>
                 <div>
@@ -1033,7 +1033,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                     placeholder="e.g. 1200000000"
                     value={formData.contract_value}
                     onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-purple-700"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-0.5 font-bold text-purple-700"
                   />
                 </div>
               </div>
@@ -1120,7 +1120,7 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
           <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-2xl my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <span className="font-mono text-xs font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+                <span className="text-xs font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
                   {detailItem.code}
                 </span>
                 <h3 className="font-bold text-slate-900 text-lg mt-1">{detailItem.name}</h3>
@@ -1150,15 +1150,15 @@ export default function ProjectsPage({ defaultTab = 'hierarchy' }) {
                 </div>
                 <div>
                   <div className="text-slate-400 font-medium">Periode Proyek</div>
-                  <div className="font-mono font-medium text-slate-800 mt-0.5">{detailItem.start_date} s/d {detailItem.end_date}</div>
+                  <div className="font-medium text-slate-800 mt-0.5">{detailItem.start_date} s/d {detailItem.end_date}</div>
                 </div>
                 <div>
                   <div className="text-slate-400 font-medium">Pagu Anggaran (Budget)</div>
-                  <div className="font-mono font-bold text-blue-700 mt-0.5">{formatIDR(detailItem.budget)}</div>
+                  <div className="font-bold text-blue-700 mt-0.5">{formatIDR(detailItem.budget)}</div>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-slate-200">
                   <div className="text-slate-400 font-medium">Realisasi Biaya Terpakai (AP)</div>
-                  <div className="font-mono font-bold text-amber-700 text-sm mt-0.5">{formatIDR(detailItem.realized_cost)}</div>
+                  <div className="font-bold text-amber-700 text-sm mt-0.5">{formatIDR(detailItem.realized_cost)}</div>
                 </div>
               </div>
 
