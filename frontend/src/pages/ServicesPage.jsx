@@ -876,7 +876,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         'HPP': formatIDR(hpp),
         'TAX 11%': tax11 > 0 ? formatIDR(tax11) : 'Rp. 0',
         'BK CHARGE / VA / XENDIT': item.attributes?.bank_charge ? formatIDR(item.attributes.bank_charge) : 'Rp. 0',
-        'PAYMENT': formatIDR(totalBaseAmount + (parseFloat(item.attributes?.bank_charge) || 0)),
+        'PAYMENT': formatIDR((hpp > 0) ? (hpp + tax11 + (parseFloat(item.attributes?.bank_charge) || 0)) : (totalBaseAmount + (parseFloat(item.attributes?.bank_charge) || 0))),
         'NAME TOKO': storeName,
         'A/T NAMA': accountHolder,
         'ADDRESS': storeAddress,
@@ -1337,7 +1337,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                             ? Number(item.attributes.tax) 
                             : (Number(item.amount || 0) - hppVal);
                           const chargeVal = Number(item.attributes?.bank_charge || 0);
-                          const totalVal = Number(item.amount || 0) + chargeVal;
+                          const totalVal = (hppVal > 0) ? (hppVal + taxVal + chargeVal) : (Number(item.amount || 0) + chargeVal);
 
                           return (
                             <>

@@ -242,7 +242,7 @@ export default function PaymentMonitoringPage() {
         tax11 = 0;
       }
 
-      const totalPayment = totalBaseAmount + bkCharge;
+      const totalPayment = (hpp > 0) ? (hpp + tax11 + bkCharge) : totalBaseAmount;
 
       const storeName = item.service?.service_name || '';
       const siteCode = item.service?.site_id || item.service?.cid?.split('-')[0] || '-';
@@ -324,10 +324,17 @@ export default function PaymentMonitoringPage() {
       }
     }
 
+    let pureBase = base;
+    if (savedHpp > 0) {
+      pureBase = savedHpp + savedTax;
+    } else if (base >= savedAdminFee && savedAdminFee > 0) {
+      pureBase = base - savedAdminFee;
+    }
+
     setPayModalItem(item);
-    setBaseAmount(base);
+    setBaseAmount(pureBase);
     setAdminFee(savedAdminFee);
-    setPaymentAmount(base + savedAdminFee);
+    setPaymentAmount(pureBase + savedAdminFee);
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentRef(`TRX-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${item.service?.cid ? String(item.service.cid).replace(/[^a-zA-Z0-9]/g,'') : 'PAY'}`);
     const invMatch = (item.notes || '').match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
@@ -391,7 +398,12 @@ export default function PaymentMonitoringPage() {
       const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
         ? Number(item.service.attributes.bank_charge) 
         : 0;
-      const totalAmount = Number(base) + savedAdminFee;
+      let totalAmount = Number(base);
+      if (item.service?.attributes?.hpp !== undefined) {
+        const hppVal = Number(item.service.attributes.hpp) || 0;
+        const taxVal = Number(item.service.attributes.tax) || 0;
+        totalAmount = hppVal + taxVal + savedAdminFee;
+      }
       
       const provCode = (item.service?.provider?.provider_code || item.service?.provider?.provider_name || 'VND')
         .substring(0, 4)
@@ -844,7 +856,7 @@ export default function PaymentMonitoringPage() {
                           bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
                         }
                       }
-                      const totalPayment = totalBase + (item.status === 'PAID' ? 0 : bkCharge);
+                      const totalPayment = (hpp > 0) ? (hpp + tax11 + bkCharge) : totalBase;
 
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">

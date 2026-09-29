@@ -281,7 +281,7 @@ export default function VendorInvoicesPage() {
         tax11 = 0;
       }
 
-      const totalPayment = totalBaseAmount + bkCharge;
+      const totalPayment = (hpp > 0) ? (hpp + tax11 + bkCharge) : totalBaseAmount;
 
       const storeName = item.service?.service_name || '';
       const siteCode = item.service?.site_id || item.service?.cid?.split('-')[0] || '-';
@@ -430,9 +430,16 @@ export default function VendorInvoicesPage() {
     const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
     const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
-    setBaseAmount(base);
+    let pureBase = Number(base);
+    if (item.service?.attributes?.hpp !== undefined) {
+      pureBase = savedHpp + savedTax;
+    } else if (pureBase >= savedAdminFee && savedAdminFee > 0) {
+      pureBase = pureBase - savedAdminFee;
+    }
+
+    setBaseAmount(pureBase);
     setAdminFee(savedAdminFee);
-    setPaymentAmount(Number(base) + savedAdminFee);
+    setPaymentAmount(pureBase + savedAdminFee);
     setPaymentDate(new Date().toISOString().split('T')[0]);
     
     // Auto-generate formal ref code
@@ -497,7 +504,12 @@ export default function VendorInvoicesPage() {
       const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
         ? Number(item.service.attributes.bank_charge) 
         : 0;
-      const totalAmount = Number(base) + savedAdminFee;
+      let totalAmount = Number(base);
+      if (item.service?.attributes?.hpp !== undefined) {
+        const hppVal = Number(item.service.attributes.hpp) || 0;
+        const taxVal = Number(item.service.attributes.tax) || 0;
+        totalAmount = hppVal + taxVal + savedAdminFee;
+      }
       
       const provCode = (item.service?.provider?.provider_code || item.service?.provider?.provider_name || 'VND')
         .substring(0, 4)
@@ -896,7 +908,7 @@ export default function VendorInvoicesPage() {
                         tax11 = 0;
                       }
 
-                      const totalPayment = totalBaseAmount + (item.status === 'PAID' ? bkCharge : (item.service?.attributes?.bank_charge || 0));
+                      const totalPayment = (hpp > 0) ? (hpp + tax11 + bkCharge) : totalBaseAmount;
 
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
