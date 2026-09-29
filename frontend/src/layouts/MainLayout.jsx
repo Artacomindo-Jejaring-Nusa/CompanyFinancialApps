@@ -39,7 +39,9 @@ import {
   FolderKanban,
   ChevronDown,
   ChevronRight,
-  PieChart
+  PieChart,
+  DollarSign,
+  FileSpreadsheet
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -48,7 +50,8 @@ export default function MainLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedNavItems, setExpandedNavItems] = useState({ 
-    '/services': true 
+    '/services': true,
+    '/hrms-reports': true
   });
 
   const toggleNavExpand = (path) => {
@@ -307,9 +310,20 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'FINANCIAL REPORTS',
+      title: 'FINANCIAL REPORTS & HRMS CLAIMS',
       items: [
-        { name: 'Financial Reports', path: '/reports', icon: BarChart3 },
+        { name: 'Financial Reports (FO & Opex)', path: '/reports', icon: BarChart3 },
+        { 
+          name: 'Klaim & Pengajuan HRMS', 
+          path: '/hrms-reports', 
+          icon: Receipt,
+          badge: 'HRMS',
+          subItems: [
+            { name: 'Semua Pengajuan Dana', path: '/hrms-reports?tab=ALL', icon: Layers },
+            { name: 'Klaim Biaya / Reimbursement', path: '/hrms-reports?tab=REIMBURSEMENT', icon: FileSpreadsheet },
+            { name: 'Pengajuan Dana / Kasbon', path: '/hrms-reports?tab=FUND_REQUEST', icon: DollarSign },
+          ]
+        },
       ],
     },
     {

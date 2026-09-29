@@ -19,6 +19,7 @@ type RouterDependencies struct {
 	DashboardHandler       *v1.DashboardHandler
 	ReportHandler          *v1.ReportHandler
 	AuditLogHandler        *v1.AuditLogHandler
+	HRMSClaimHandler       *v1.HRMSClaimHandler
 }
 
 func SetupRouter(deps *RouterDependencies) *gin.Engine {
@@ -135,6 +136,16 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 
 			// Audit Logs API
 			protected.GET("/audit-logs", middleware.RequireRole("admin", "finance_supervisor", "finance_manager", "auditor"), deps.AuditLogHandler.GetAll)
+
+			// HRMS Claims & Fund Requests Integration API
+			hrms := protected.Group("/hrms")
+			{
+				hrms.GET("/claims", deps.HRMSClaimHandler.GetAll)
+				hrms.GET("/claims/:id", deps.HRMSClaimHandler.GetByID)
+				hrms.GET("/summary", deps.HRMSClaimHandler.GetSummary)
+				hrms.POST("/claims/:id/disburse", middleware.RequireRole("admin", "finance_staff", "finance_supervisor"), deps.HRMSClaimHandler.Disburse)
+				hrms.POST("/sync", middleware.RequireRole("admin", "finance_staff", "finance_supervisor"), deps.HRMSClaimHandler.SyncFromHRMS)
+			}
 		}
 	}
 

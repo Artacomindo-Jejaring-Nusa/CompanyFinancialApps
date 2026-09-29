@@ -13,6 +13,7 @@ import ServicesPage from './pages/ServicesPage';
 import ProjectsPage from './pages/ProjectsPage';
 import MasterDataPage from './pages/MasterDataPage';
 import ReportsPage from './pages/ReportsPage';
+import HrmsClaimsReportPage from './pages/HrmsClaimsReportPage';
 import UserManagementPage from './pages/UserManagementPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 
@@ -67,6 +68,8 @@ export default function App() {
 
           <Route path="master-data" element={<MasterDataPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="hrms-reports" element={<HrmsClaimsReportPage />} />
+          <Route path="hrms/claims" element={<HrmsClaimsReportPage />} />
 
           <Route
             path="users"
