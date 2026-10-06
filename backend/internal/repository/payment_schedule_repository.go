@@ -18,6 +18,22 @@ func NewPaymentScheduleRepository(db *gorm.DB) domain.PaymentScheduleRepository 
 	return &paymentScheduleRepository{db: db}
 }
 
+func CalculateScheduleStatus(schedule *domain.PaymentSchedule, today time.Time) {
+	if schedule.Status == "PAID" || schedule.Status == "CANCELLED" {
+		return
+	}
+	dueDay := time.Date(schedule.DueDate.Year(), schedule.DueDate.Month(), schedule.DueDate.Day(), 0, 0, 0, 0, today.Location())
+	if dueDay.Before(today) {
+		schedule.Status = "OVERDUE"
+	} else if dueDay.Equal(today) {
+		schedule.Status = "DUE_TODAY"
+	} else if dueDay.After(today) && !dueDay.After(today.AddDate(0, 0, 7)) {
+		schedule.Status = "DUE_SOON"
+	} else {
+		schedule.Status = "UPCOMING"
+	}
+}
+
 func (r *paymentScheduleRepository) GetAll(ctx context.Context, filter domain.PaymentScheduleFilter) ([]domain.PaymentSchedule, int64, error) {
 	var schedules []domain.PaymentSchedule
 	var total int64
@@ -30,22 +46,30 @@ func (r *paymentScheduleRepository) GetAll(ctx context.Context, filter domain.Pa
 
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrow := today.AddDate(0, 0, 1)
+	sevenDaysLater := today.AddDate(0, 0, 7)
+
+	// Keep database updated: mark past-due unpaid schedules as OVERDUE
+	go func() {
+		_ = r.db.Model(&domain.PaymentSchedule{}).
+			Where("due_date < ? AND status NOT IN ('PAID', 'CANCELLED', 'OVERDUE')", today).
+			Update("status", "OVERDUE")
+	}()
 
 	// Apply Status Filters according to PRD
 	switch filter.Status {
 	case "UPCOMING":
-		query = query.Where("status = ?", "UPCOMING")
+		query = query.Where("payment_schedules.due_date > ? AND payment_schedules.status NOT IN ('PAID', 'CANCELLED')", sevenDaysLater)
 	case "DUE_TODAY":
-		query = query.Where("due_date = ? AND status NOT IN ('PAID', 'CANCELLED')", today)
+		query = query.Where("payment_schedules.due_date >= ? AND payment_schedules.due_date < ? AND payment_schedules.status NOT IN ('PAID', 'CANCELLED')", today, tomorrow)
 	case "DUE_SOON":
-		sevenDaysLater := today.AddDate(0, 0, 7)
-		query = query.Where("due_date >= ? AND due_date <= ? AND status NOT IN ('PAID', 'CANCELLED')", today, sevenDaysLater)
+		query = query.Where("payment_schedules.due_date >= ? AND payment_schedules.due_date <= ? AND payment_schedules.status NOT IN ('PAID', 'CANCELLED')", today, sevenDaysLater)
 	case "OVERDUE":
-		query = query.Where("(due_date < ? AND status NOT IN ('PAID', 'CANCELLED')) OR status = 'OVERDUE'", today)
+		query = query.Where("(payment_schedules.due_date < ? AND payment_schedules.status NOT IN ('PAID', 'CANCELLED')) OR payment_schedules.status = 'OVERDUE'", today)
 	case "PAID":
-		query = query.Where("status = ?", "PAID")
+		query = query.Where("payment_schedules.status = ?", "PAID")
 	case "PARTIALLY_PAID":
-		query = query.Where("status = ?", "PARTIALLY_PAID")
+		query = query.Where("payment_schedules.status = ?", "PARTIALLY_PAID")
 	}
 
 	if filter.ServiceID != nil {
@@ -83,7 +107,15 @@ func (r *paymentScheduleRepository) GetAll(ctx context.Context, filter domain.Pa
 
 	offset := (filter.Page - 1) * filter.Limit
 	err := query.Offset(offset).Limit(filter.Limit).Order("due_date ASC").Find(&schedules).Error
-	return schedules, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for i := range schedules {
+		CalculateScheduleStatus(&schedules[i], today)
+	}
+
+	return schedules, total, nil
 }
 
 func (r *paymentScheduleRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.PaymentSchedule, error) {
@@ -97,6 +129,9 @@ func (r *paymentScheduleRepository) GetByID(ctx context.Context, id uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	CalculateScheduleStatus(&ps, today)
 	return &ps, nil
 }
 
@@ -106,6 +141,9 @@ func (r *paymentScheduleRepository) GetByServiceAndPeriod(ctx context.Context, s
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	CalculateScheduleStatus(&ps, today)
 	return &ps, nil
 }
 

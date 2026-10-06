@@ -191,14 +191,48 @@ export default function TVCalendarDisplayPage() {
 
   const targetPeriodPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
   
-  // Base schedules for this month
-  const rawMonthSchedules = schedules.filter((s) => {
+  const getScheduleEffectiveStatus = (s) => {
+    if (!s) return 'UPCOMING';
+    if (s.status === 'PAID') return 'PAID';
+    if (s.status === 'CANCELLED') return 'CANCELLED';
+
     if (s.due_date) {
       const d = new Date(s.due_date);
-      return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+      const dueYear = d.getFullYear();
+      const dueMonth = d.getMonth();
+      const dueDay = d.getDate();
+
+      const curYear = currentDate.getFullYear();
+      const curMonth = currentDate.getMonth();
+      const curDay = currentDate.getDate();
+
+      const dueTime = new Date(dueYear, dueMonth, dueDay).getTime();
+      const curTime = new Date(curYear, curMonth, curDay).getTime();
+
+      const diffDays = Math.round((dueTime - curTime) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) return 'OVERDUE';
+      if (diffDays === 0) return 'DUE_TODAY';
+      if (diffDays <= 7) return 'DUE_SOON';
+      return 'UPCOMING';
     }
-    return s.period === targetPeriodPrefix;
-  });
+
+    return s.status || 'UPCOMING';
+  };
+
+  // Base schedules for this month enriched with real-time status
+  const rawMonthSchedules = schedules
+    .filter((s) => {
+      if (s.due_date) {
+        const d = new Date(s.due_date);
+        return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+      }
+      return s.period === targetPeriodPrefix;
+    })
+    .map((s) => ({
+      ...s,
+      status: getScheduleEffectiveStatus(s),
+    }));
 
   // Calculate SMART ACTIVE PROVIDERS for this month
   const activeProviderIds = new Set(rawMonthSchedules.map((s) => s.service?.provider_id));
@@ -581,7 +615,7 @@ export default function TVCalendarDisplayPage() {
                     isToday
                       ? 'bg-blue-50/40 border-blue-500 ring-1 ring-blue-500'
                       : hasOverdue
-                      ? 'bg-red-50/30 border-red-200'
+                      ? 'bg-red-50/40 border-red-300 ring-1 ring-red-300'
                       : hasDueToday
                       ? 'bg-amber-50/30 border-amber-200'
                       : 'bg-white border-slate-200 hover:border-slate-300'
@@ -592,6 +626,8 @@ export default function TVCalendarDisplayPage() {
                     <span className={`text-[11px] font-bold ${
                       isToday 
                         ? 'px-1 rounded bg-blue-600 text-white' 
+                        : hasOverdue
+                        ? 'text-red-700'
                         : 'text-slate-700'
                     }`}>
                       {dayNum}
@@ -605,7 +641,7 @@ export default function TVCalendarDisplayPage() {
 
                     {dayItems.length > 0 && !isToday && (
                       <span className={`text-[9px] font-medium px-1 rounded ${
-                        hasOverdue ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                        hasOverdue ? 'bg-red-100 text-red-700 font-bold border border-red-200' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {dayItems.length} Inv
                       </span>
@@ -616,7 +652,10 @@ export default function TVCalendarDisplayPage() {
                   <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-0.5">
                     {visibleItems.map((item) => {
                       const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
-                      const badgeClass = getStatusBadgeStyle(item.status);
+                      const isOverdue = item.status === 'OVERDUE';
+                      const badgeClass = isOverdue
+                        ? 'bg-red-50 border-red-300 text-red-900 shadow-2xs'
+                        : getStatusBadgeStyle(item.status);
 
                       return (
                         <div
@@ -625,13 +664,13 @@ export default function TVCalendarDisplayPage() {
                           className={`p-0.5 px-1 rounded border text-left cursor-pointer transition-colors hover:bg-opacity-80 ${badgeClass}`}
                           title="Klik untuk melihat rincian tagihan"
                         >
-                          <div className="flex items-center justify-between gap-1 text-[10px] font-semibold leading-tight">
+                          <div className={`flex items-center justify-between gap-1 text-[10px] font-semibold leading-tight ${isOverdue ? 'text-red-950 font-bold' : ''}`}>
                             <span className="truncate">{shortVendor}</span>
-                            <span className="whitespace-nowrap text-[9px] font-bold">
+                            <span className={`whitespace-nowrap text-[9px] font-bold ${isOverdue ? 'text-red-700' : ''}`}>
                               {formatIDR(item.remaining_amount || item.amount)}
                             </span>
                           </div>
-                          <div className="text-[9px] truncate text-slate-600 leading-tight">
+                          <div className={`text-[9px] truncate leading-tight ${isOverdue ? 'text-red-800 font-medium' : 'text-slate-600'}`}>
                             {item.service?.service_name || item.service?.cid}
                           </div>
                         </div>
@@ -672,7 +711,10 @@ export default function TVCalendarDisplayPage() {
             {upcomingPriorityList.length > 0 ? (
               upcomingPriorityList.map((item) => {
                 const shortVendor = getShortVendorName(item.service?.provider?.provider_name);
-                const badgeClass = getStatusBadgeStyle(item.status);
+                const isOverdue = item.status === 'OVERDUE';
+                const badgeClass = isOverdue
+                  ? 'bg-red-50/90 border-red-300 hover:border-red-500'
+                  : getStatusBadgeStyle(item.status);
 
                 return (
                   <div
@@ -682,23 +724,31 @@ export default function TVCalendarDisplayPage() {
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-bold text-[11px] text-slate-900 flex items-center gap-1">
-                        <Building2 size={11} className="text-slate-600" />
+                        <Building2 size={11} className={isOverdue ? 'text-red-700' : 'text-slate-600'} />
                         <span className="truncate">{shortVendor}</span>
                       </span>
-                      <span className="text-[9px] font-semibold uppercase">
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                        item.status === 'OVERDUE'
+                          ? 'bg-red-600 text-white border-red-700'
+                          : item.status === 'DUE_TODAY'
+                          ? 'bg-amber-500 text-white border-amber-600'
+                          : item.status === 'DUE_SOON'
+                          ? 'bg-blue-100 text-blue-800 border-blue-300'
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}>
                         {item.status}
                       </span>
                     </div>
 
-                    <div className="text-[10px] text-slate-700 mt-0.5 font-medium truncate">
+                    <div className={`text-[10px] mt-0.5 font-medium truncate ${isOverdue ? 'text-red-950 font-semibold' : 'text-slate-700'}`}>
                       {item.service?.service_name}
                     </div>
 
                     <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-200/60 text-[10px]">
-                      <span className="font-bold text-slate-900">
+                      <span className={`font-bold ${isOverdue ? 'text-red-700' : 'text-slate-900'}`}>
                         {formatIDR(item.remaining_amount || item.amount)}
                       </span>
-                      <span className="text-slate-600 text-[9px]">
+                      <span className={`text-[9px] ${isOverdue ? 'text-red-700 font-semibold' : 'text-slate-600'}`}>
                         Jatuh Tempo: {new Date(item.due_date).toLocaleDateString('id-ID')}
                       </span>
                     </div>
@@ -761,7 +811,10 @@ export default function TVCalendarDisplayPage() {
                       {item.service?.service_name} • <span>{item.service?.cid || item.service?.contract_number || '-'}</span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
-                      Customer: {item.service?.customer?.customer_name} • Status: {item.status}
+                      Customer: {item.service?.customer?.customer_name} • Status:{' '}
+                      <span className={item.status === 'OVERDUE' ? 'text-red-600 font-bold' : 'font-medium'}>
+                        {item.status}
+                      </span>
                     </div>
                   </div>
                 );
@@ -806,7 +859,17 @@ export default function TVCalendarDisplayPage() {
                 </div>
                 <div>
                   <div className="text-slate-500 font-medium text-[11px]">Status Pembayaran</div>
-                  <div className="font-bold text-slate-900 mt-0.5">{detailItem.status}</div>
+                  <div className={`font-bold mt-0.5 ${
+                    detailItem.status === 'OVERDUE'
+                      ? 'text-red-600'
+                      : detailItem.status === 'DUE_TODAY'
+                      ? 'text-amber-600'
+                      : detailItem.status === 'PAID'
+                      ? 'text-emerald-600'
+                      : 'text-slate-900'
+                  }`}>
+                    {detailItem.status}
+                  </div>
                 </div>
                 <div>
                   <div className="text-slate-500 font-medium text-[11px]">Tanggal Jatuh Tempo</div>

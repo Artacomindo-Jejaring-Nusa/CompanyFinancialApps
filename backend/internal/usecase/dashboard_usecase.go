@@ -66,7 +66,7 @@ func (u *dashboardUsecase) GetSummary(ctx context.Context) (*domain.DashboardSum
 
 	// 6. Upcoming Payment Count
 	_ = u.db.WithContext(ctx).Model(&domain.PaymentSchedule{}).
-		Where("status = ?", "UPCOMING").
+		Where("due_date >= ? AND status NOT IN ('PAID', 'CANCELLED')", today).
 		Count(&summary.UpcomingPaymentCount)
 
 	// 7. Upcoming Schedules List (Top 5)
@@ -80,6 +80,9 @@ func (u *dashboardUsecase) GetSummary(ctx context.Context) (*domain.DashboardSum
 		Preload("Service").Preload("Service.Customer").Preload("Service.Provider").
 		Where("due_date < ? AND status NOT IN ('PAID', 'CANCELLED')", today).
 		Order("due_date ASC").Limit(5).Find(&summary.OverdueSchedules)
+	for i := range summary.OverdueSchedules {
+		summary.OverdueSchedules[i].Status = "OVERDUE"
+	}
 
 	return summary, nil
 }
