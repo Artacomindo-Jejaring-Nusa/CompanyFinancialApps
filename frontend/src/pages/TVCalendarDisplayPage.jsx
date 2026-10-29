@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import { 
   Clock, 
@@ -894,8 +894,49 @@ export default function TVCalendarDisplayPage() {
                   <div className="font-medium text-slate-800 mt-0.5">{detailItem.service?.customer?.customer_name}</div>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-slate-200">
-                  <div className="text-slate-500 font-medium text-[11px]">Catatan Invoice</div>
-                  <div className="text-slate-700 text-xs mt-0.5">{detailItem.notes || '-'}</div>
+                  <div className="text-slate-500 font-medium text-[11px] mb-1.5">
+                    🔗 Keterangan Pembayaran
+                  </div>
+                  {detailItem.notes ? (() => {
+                    const parts = detailItem.notes.split('|').map(p => p.trim());
+                    const link = parts[0] || '';
+                    const idVal = parts[1] || '';
+                    const passVal = parts[2] || '';
+                    const isUrl = link.startsWith('http://') || link.startsWith('https://');
+                    return (
+                      <div className="space-y-2 mt-1">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Link Pembayaran</span>
+                          {isUrl ? (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline text-xs font-medium break-all mt-0.5 flex items-center gap-1"
+                            >
+                              🌐 {link}
+                            </a>
+                          ) : (
+                            <span className="text-slate-700 text-xs mt-0.5 break-all">{link || '-'}</span>
+                          )}
+                        </div>
+                        {(idVal || passVal) && (
+                          <div className="grid grid-cols-2 gap-2 bg-amber-50 border border-amber-200 rounded-md p-2.5">
+                            <div>
+                              <span className="text-[10px] text-amber-600 uppercase tracking-wide font-semibold">ID / Username</span>
+                              <div className="font-bold text-slate-800 text-xs mt-0.5 break-all select-text">{idVal || '-'}</div>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-amber-600 uppercase tracking-wide font-semibold">Password</span>
+                              <div className="font-bold text-slate-800 text-xs mt-0.5 break-all select-text">{passVal || '-'}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (
+                    <div className="text-slate-400 text-xs italic mt-0.5">Belum ada keterangan pembayaran</div>
+                  )}
                 </div>
               </div>
             </div>

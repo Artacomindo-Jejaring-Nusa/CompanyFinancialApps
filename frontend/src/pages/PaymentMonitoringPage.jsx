@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { 
   CreditCard, 
@@ -66,6 +66,9 @@ export default function PaymentMonitoringPage() {
   const [fakturPajakInput, setFakturPajakInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [payLinkInput, setPayLinkInput] = useState('');
+  const [payIdInput, setPayIdInput] = useState('');
+  const [payPassInput, setPayPassInput] = useState('');
 
   // Form state for "+ Catat Invoice Masuk" (Incoming Vendor Invoice)
   const [invoiceForm, setInvoiceForm] = useState({
@@ -341,7 +344,14 @@ export default function PaymentMonitoringPage() {
     setInvoiceNumberInput(invMatch ? invMatch[1] : (item.service?.contract_number || ''));
     const fakturMatch = (item.notes || '').match(/Faktur:\s*([^\s|,]+)/i);
     setFakturPajakInput(fakturMatch ? fakturMatch[1] : '');
-    setPaymentNotes(item.notes || '');
+    const existingNotes = item.notes || '';
+    const existParts = existingNotes.split('|').map(p => p.trim());
+    setPayLinkInput(existParts[0] || '');
+    setPayIdInput(existParts[1] || '');
+    setPayPassInput(existParts[2] || '');
+    // Keep paymentNotes for other notes that aren't link/id/pass format
+    const isLinkFormat = existParts[0].startsWith('http://') || existParts[0].startsWith('https://');
+    setPaymentNotes(isLinkFormat ? '' : existingNotes);
   };
 
   const handleBaseAmountChange = (val) => {
@@ -1393,6 +1403,48 @@ export default function PaymentMonitoringPage() {
                 />
               </div>
 
+              {/* 🔗 Portal Pembayaran Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2.5">
+                <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                  🔗 Info Portal Pembayaran (Opsional)
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700">Link / URL Pembayaran</label>
+                  <input
+                    type="url"
+                    placeholder="https://portal.vendor.com/pay"
+                    value={payLinkInput}
+                    onChange={(e) => setPayLinkInput(e.target.value)}
+                    className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">ID / Username Portal</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. finance@artacom.id"
+                      value={payIdInput}
+                      onChange={(e) => setPayIdInput(e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">Password Portal</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. P@ssw0rd123"
+                      value={payPassInput}
+                      onChange={(e) => setPayPassInput(e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="text-[10px] text-blue-500 italic">
+                  💡 Data ini disimpan sebagai referensi pembayaran di masa mendatang
+                </div>
+              </div>
+
               <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -1640,8 +1692,50 @@ export default function PaymentMonitoringPage() {
                   <div className="font-bold text-slate-900 mt-0.5">{detailItem.service?.customer?.customer_name}</div>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-slate-200">
-                  <div className="text-slate-500 font-medium">Catatan / Rincian Invoice</div>
-                  <div className="font-mono text-slate-800 text-xs mt-0.5">{detailItem.notes || '-'}</div>
+                  <div className="text-slate-500 font-medium mb-1.5">🔗 Keterangan Pembayaran</div>
+                  {detailItem.notes ? (() => {
+                    const parts = detailItem.notes.split('|').map(p => p.trim());
+                    const link = parts[0] || '';
+                    const idVal = parts[1] || '';
+                    const passVal = parts[2] || '';
+                    const isUrl = link.startsWith('http://') || link.startsWith('https://');
+                    return (
+                      <div className="space-y-2 mt-1">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Link Pembayaran</span>
+                          {isUrl ? (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline text-xs font-medium break-all mt-0.5"
+                            >
+                              🌐 {link}
+                            </a>
+                          ) : (
+                            <span className="font-mono text-slate-700 text-xs mt-0.5 break-all">{link || '-'}</span>
+                          )}
+                        </div>
+                        {(idVal || passVal) && (
+                          <div className="grid grid-cols-2 gap-2 bg-amber-50 border border-amber-200 rounded-md p-2.5">
+                            <div>
+                              <span className="text-[10px] text-amber-600 uppercase tracking-wide font-semibold">ID / Username</span>
+                              <div className="font-mono font-bold text-slate-800 text-xs mt-0.5 break-all select-text">{idVal || '-'}</div>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-amber-600 uppercase tracking-wide font-semibold">Password</span>
+                              <div className="font-mono font-bold text-slate-800 text-xs mt-0.5 break-all select-text">{passVal || '-'}</div>
+                            </div>
+                          </div>
+                        )}
+                        {!idVal && !passVal && (
+                          <div className="font-mono text-slate-700 text-xs break-all">{detailItem.notes}</div>
+                        )}
+                      </div>
+                    );
+                  })() : (
+                    <div className="text-slate-400 text-xs italic mt-0.5">Belum ada keterangan pembayaran</div>
+                  )}
                 </div>
               </div>
             </div>
