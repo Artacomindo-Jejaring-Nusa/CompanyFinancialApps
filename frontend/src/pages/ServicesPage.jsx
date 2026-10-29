@@ -34,7 +34,8 @@ import {
   FileText, 
   Download, 
   HelpCircle, 
-  Info 
+  Info,
+  Receipt
 } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
