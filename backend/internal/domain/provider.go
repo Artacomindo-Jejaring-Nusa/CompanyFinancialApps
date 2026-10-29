@@ -12,8 +12,12 @@ type Provider struct {
 	Contact      string    `json:"contact"`
 	Email        string    `json:"email"`
 	Phone        string    `json:"phone"`
-	Address      string    `json:"address"`
-	Status       string    `json:"status" gorm:"default:'ACTIVE'"`
+	Address         string    `json:"address"`
+	PaymentURL      string    `json:"payment_url"`
+	PaymentUsername string    `json:"payment_username"`
+	PaymentPassword string    `json:"payment_password"`
+	PaymentNotes    string    `json:"payment_notes"`
+	Status          string    `json:"status" gorm:"default:'ACTIVE'"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

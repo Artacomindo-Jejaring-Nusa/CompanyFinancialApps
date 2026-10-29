@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
 import { 
@@ -55,7 +55,7 @@ export default function MasterDataPage() {
   // Provider Modal Form (Create & Edit)
   const [pModalOpen, setPModalOpen] = useState(false);
   const [pEditing, setPEditing] = useState(null);
-  const [pForm, setPForm] = useState({ provider_code: '', provider_name: '', contact: '', email: '', phone: '', address: '', status: 'ACTIVE' });
+  const [pForm, setPForm] = useState({ provider_code: '', provider_name: '', contact: '', email: '', phone: '', address: '', payment_url: '', payment_username: '', payment_password: '', payment_notes: '', status: 'ACTIVE' });
 
   // Delete Modal
   const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'CUSTOMER'|'PROVIDER', item }
@@ -144,7 +144,7 @@ export default function MasterDataPage() {
   // --- PROVIDER CRUD ---
   const openAddProvider = () => {
     setPEditing(null);
-    setPForm({ provider_code: '', provider_name: '', contact: '', email: '', phone: '', address: '', status: 'ACTIVE' });
+    setPForm({ provider_code: '', provider_name: '', contact: '', email: '', phone: '', address: '', payment_url: '', payment_username: '', payment_password: '', payment_notes: '', status: 'ACTIVE' });
     setPModalOpen(true);
   };
 
@@ -157,6 +157,10 @@ export default function MasterDataPage() {
       email: p.email || '',
       phone: p.phone || '',
       address: p.address || '',
+      payment_url: p.payment_url || '',
+      payment_username: p.payment_username || '',
+      payment_password: p.payment_password || '',
+      payment_notes: p.payment_notes || '',
       status: p.status || 'ACTIVE',
     });
     setPModalOpen(true);
@@ -221,6 +225,9 @@ export default function MasterDataPage() {
       'Email': p.email || '-',
       'Phone': p.phone || '-',
       'Address': p.address || '-',
+      'Portal URL': p.payment_url || '-',
+      'Portal ID/User': p.payment_username || '-',
+      'Portal Notes': p.payment_notes || '-',
       'Status': p.status || 'ACTIVE',
       'Created At': p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID') : '-',
     }));
@@ -640,6 +647,7 @@ export default function MasterDataPage() {
                       <th className="py-3.5 px-4">Provider Name</th>
                       <th className="py-3.5 px-4">Contact Person</th>
                       <th className="py-3.5 px-4">Email & Phone</th>
+                      <th className="py-3.5 px-4">Portal Pembayaran</th>
                       <th className="py-3.5 px-4 text-center">Status</th>
                       <th className="py-3.5 px-4 text-center">Aksi (CRUD)</th>
                     </tr>
@@ -654,6 +662,31 @@ export default function MasterDataPage() {
                           <td className="py-3.5 px-4 text-xs font-medium text-slate-600">
                             <div>{p.email || '-'}</div>
                             <div className="text-slate-500 font-mono mt-0.5">{p.phone || '-'}</div>
+                          </td>
+                          <td className="py-3.5 px-4 text-xs">
+                            {p.payment_url || p.payment_username ? (
+                              <div className="space-y-1">
+                                {p.payment_url && (
+                                  <a
+                                    href={p.payment_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 font-bold underline flex items-center gap-1 truncate max-w-[170px]"
+                                    title={p.payment_url}
+                                  >
+                                    🌐 Buka Portal
+                                  </a>
+                                )}
+                                {(p.payment_username || p.payment_password) && (
+                                  <div className="text-[11px] text-slate-700 font-mono bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 max-w-[170px] truncate">
+                                    <span className="font-semibold text-slate-500">ID:</span> {p.payment_username || '-'}
+                                    {p.payment_password && <span className="ml-1 text-slate-400">| ***</span>}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Belum diatur</span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">{p.status}</span>
@@ -680,7 +713,7 @@ export default function MasterDataPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500 font-medium">
+                        <td colSpan={7} className="py-8 text-center text-slate-500 font-medium">
                           Tidak ada data provider yang sesuai dengan pencarian.
                         </td>
                       </tr>
@@ -960,6 +993,56 @@ export default function MasterDataPage() {
                 <label className="font-semibold text-slate-800">Address</label>
                 <input type="text" placeholder="Alamat kantor vendor / gedung" value={pForm.address} onChange={(e) => setPForm({ ...pForm, address: e.target.value })} className="w-full border rounded-lg p-2 mt-1" />
               </div>
+
+              {/* Section Portal Pembayaran Vendor */}
+              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 space-y-2.5">
+                <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                  🌐 Portal Pembayaran & Kredensial Vendor
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 text-[11px]">Link / URL Portal Pembayaran</label>
+                  <input
+                    type="url"
+                    placeholder="https://billing.vendor.com / https://my.republic.id"
+                    value={pForm.payment_url}
+                    onChange={(e) => setPForm({ ...pForm, payment_url: e.target.value })}
+                    className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="font-semibold text-slate-700 text-[11px]">ID / Username Portal</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. finance@artacom.id / 1029384"
+                      value={pForm.payment_username}
+                      onChange={(e) => setPForm({ ...pForm, payment_username: e.target.value })}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 text-[11px]">Password Portal</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. RahasiaVendor123!"
+                      value={pForm.payment_password}
+                      onChange={(e) => setPForm({ ...pForm, payment_password: e.target.value })}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 text-[11px]">Catatan Portal / Instruksi Pembayaran</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Masukkan no virtual account BCA, bayar sebelum tgl 20"
+                    value={pForm.payment_notes}
+                    onChange={(e) => setPForm({ ...pForm, payment_notes: e.target.value })}
+                    className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="font-semibold text-slate-800">Status</label>
                 <select value={pForm.status} onChange={(e) => setPForm({ ...pForm, status: e.target.value })} className="w-full border rounded-lg p-2 mt-1">

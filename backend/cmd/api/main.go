@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -131,6 +131,13 @@ func main() {
 
 func seedInitialData() {
 	ctx := context.Background()
+
+	// Ensure provider portal columns exist in database
+	_ = database.DB.Exec("ALTER TABLE providers ADD COLUMN IF NOT EXISTS payment_url TEXT").Error
+	_ = database.DB.Exec("ALTER TABLE providers ADD COLUMN IF NOT EXISTS payment_username VARCHAR(100)").Error
+	_ = database.DB.Exec("ALTER TABLE providers ADD COLUMN IF NOT EXISTS payment_password VARCHAR(100)").Error
+	_ = database.DB.Exec("ALTER TABLE providers ADD COLUMN IF NOT EXISTS payment_notes TEXT").Error
+
 	userRepo := repository.NewUserRepository(database.DB)
 
 	user, _ := userRepo.GetByUsername(ctx, "admin")

@@ -65,6 +65,10 @@ func (u *providerUsecase) Update(ctx context.Context, id int64, provider *domain
 	existing.Email = provider.Email
 	existing.Phone = provider.Phone
 	existing.Address = provider.Address
+	existing.PaymentURL = provider.PaymentURL
+	existing.PaymentUsername = provider.PaymentUsername
+	existing.PaymentPassword = provider.PaymentPassword
+	existing.PaymentNotes = provider.PaymentNotes
 	existing.Status = provider.Status
 
 	if err := u.providerRepo.Update(ctx, existing); err != nil {

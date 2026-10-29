@@ -1,4 +1,4 @@
--- FSPMS Database Schema Migration UP
+﻿-- FSPMS Database Schema Migration UP
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -53,6 +53,10 @@ CREATE TABLE IF NOT EXISTS providers (
     email VARCHAR(100),
     phone VARCHAR(30),
     address TEXT,
+    payment_url TEXT,
+    payment_username VARCHAR(100),
+    payment_password VARCHAR(100),
+    payment_notes TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
