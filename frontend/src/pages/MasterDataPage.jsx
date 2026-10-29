@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
 import { 
@@ -911,12 +912,13 @@ export default function MasterDataPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Customer Modal (CREATE & EDIT) */}
-      {cModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
+      {cModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-base">
@@ -954,116 +956,209 @@ export default function MasterDataPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Provider Modal (CREATE & EDIT) */}
-      {pModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">
-                {pEditing ? `Edit Provider: ${pEditing.provider_name}` : 'Add Provider'}
-              </h3>
-              <button onClick={() => setPModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+      {/* Provider Modal (CREATE & EDIT) - 2-Column Horizontal Layout with Portal */}
+      {pModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl p-6 space-y-4 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Truck size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {pEditing ? `Edit Provider / Vendor: ${pEditing.provider_name}` : 'Tambah Master Provider / Vendor Baru'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Kelola rincian kontak vendor dan kredensial portal invoice pembayaran.</p>
+                </div>
+              </div>
+              <button onClick={() => setPModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveProvider} className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-800">Provider Code *</label>
-                <input type="text" required placeholder="PROV-001" value={pForm.provider_code} onChange={(e) => setPForm({ ...pForm, provider_code: e.target.value })} className="w-full border rounded-lg p-2 mt-1 font-mono font-bold" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-800">Provider Name *</label>
-                <input type="text" required placeholder="Biznet Networks" value={pForm.provider_name} onChange={(e) => setPForm({ ...pForm, provider_name: e.target.value })} className="w-full border rounded-lg p-2 mt-1 font-semibold" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-800">Contact Person</label>
-                <input type="text" placeholder="Enterprise Account Manager" value={pForm.contact} onChange={(e) => setPForm({ ...pForm, contact: e.target.value })} className="w-full border rounded-lg p-2 mt-1 font-medium" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-800">Email & Phone</label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <input type="email" placeholder="billing@provider.com" value={pForm.email} onChange={(e) => setPForm({ ...pForm, email: e.target.value })} className="border rounded-lg p-2 text-xs" />
-                  <input type="text" placeholder="021-57998888" value={pForm.phone} onChange={(e) => setPForm({ ...pForm, phone: e.target.value })} className="border rounded-lg p-2 text-xs" />
-                </div>
-              </div>
-              <div>
-                <label className="font-semibold text-slate-800">Address</label>
-                <input type="text" placeholder="Alamat kantor vendor / gedung" value={pForm.address} onChange={(e) => setPForm({ ...pForm, address: e.target.value })} className="w-full border rounded-lg p-2 mt-1" />
-              </div>
 
-              {/* Section Portal Pembayaran Vendor */}
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 space-y-2.5">
-                <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                  🌐 Portal Pembayaran & Kredensial Vendor
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-700 text-[11px]">Link / URL Portal Pembayaran</label>
-                  <input
-                    type="url"
-                    placeholder="https://billing.vendor.com / https://my.republic.id"
-                    value={pForm.payment_url}
-                    onChange={(e) => setPForm({ ...pForm, payment_url: e.target.value })}
-                    className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
+            <form onSubmit={handleSaveProvider} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Kolom 1 (Kiri): Profil & Kontak Vendor */}
+                <div className="space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
+                  <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
+                    <Building2 size={14} className="text-slate-600" />
+                    <span>Informasi Profil Vendor</span>
+                  </div>
                   <div>
-                    <label className="font-semibold text-slate-700 text-[11px]">ID / Username Portal</label>
+                    <label className="font-semibold text-slate-800">Kode Provider / Vendor *</label>
                     <input
                       type="text"
-                      placeholder="e.g. finance@artacom.id / 1029384"
-                      value={pForm.payment_username}
-                      onChange={(e) => setPForm({ ...pForm, payment_username: e.target.value })}
-                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                      required
+                      placeholder="PROV-001"
+                      value={pForm.provider_code}
+                      onChange={(e) => setPForm({ ...pForm, provider_code: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-slate-700 text-[11px]">Password Portal</label>
+                    <label className="font-semibold text-slate-800">Nama Provider / Vendor *</label>
                     <input
                       type="text"
-                      placeholder="e.g. RahasiaVendor123!"
-                      value={pForm.payment_password}
-                      onChange={(e) => setPForm({ ...pForm, payment_password: e.target.value })}
-                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-400 focus:outline-none"
+                      required
+                      placeholder="Biznet Networks / PT iForte Solusi Infotek"
+                      value={pForm.provider_name}
+                      onChange={(e) => setPForm({ ...pForm, provider_name: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-900 focus:border-blue-500 focus:outline-none"
                     />
                   </div>
+                  <div>
+                    <label className="font-semibold text-slate-800">Contact Person / Account Manager</label>
+                    <input
+                      type="text"
+                      placeholder="Enterprise Account Rep"
+                      value={pForm.contact}
+                      onChange={(e) => setPForm({ ...pForm, contact: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-semibold text-slate-800">Email Billing / Vendor</label>
+                      <input
+                        type="email"
+                        placeholder="billing@vendor.com"
+                        value={pForm.email}
+                        onChange={(e) => setPForm({ ...pForm, email: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 text-xs focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-800">No. Telepon / Hotline</label>
+                      <input
+                        type="text"
+                        placeholder="021-57998888"
+                        value={pForm.phone}
+                        onChange={(e) => setPForm({ ...pForm, phone: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-800">Alamat Kantor Vendor</label>
+                    <input
+                      type="text"
+                      placeholder="Alamat kantor / gedung vendor"
+                      value={pForm.address}
+                      onChange={(e) => setPForm({ ...pForm, address: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-800">Status Vendor</label>
+                    <select
+                      value={pForm.status}
+                      onChange={(e) => setPForm({ ...pForm, status: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-semibold text-slate-800 focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="font-semibold text-slate-700 text-[11px]">Catatan Portal / Instruksi Pembayaran</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Masukkan no virtual account BCA, bayar sebelum tgl 20"
-                    value={pForm.payment_notes}
-                    onChange={(e) => setPForm({ ...pForm, payment_notes: e.target.value })}
-                    className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs focus:border-blue-400 focus:outline-none"
-                  />
+
+                {/* Kolom 2 (Kanan): Portal Pembayaran & Kredensial Vendor */}
+                <div className="space-y-3 flex flex-col justify-between">
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 space-y-3 flex-1">
+                    <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center justify-between border-b border-blue-100 pb-2">
+                      <span className="flex items-center gap-1.5">
+                        🌐 Portal Pembayaran Vendor
+                      </span>
+                      <span className="text-[10px] bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-bold">
+                        Akses Finance
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-700 text-[11px]">Link / URL Portal Pembayaran Vendor</label>
+                      <input
+                        type="url"
+                        placeholder="https://billing.vendor.com / https://portal.vendor.id"
+                        value={pForm.payment_url}
+                        onChange={(e) => setPForm({ ...pForm, payment_url: e.target.value })}
+                        className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-0.5 block">Finance dapat langsung mengklik link ini untuk login ke invoice vendor.</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="font-semibold text-slate-700 text-[11px]">ID / Username Portal</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. finance@artacom.id"
+                          value={pForm.payment_username}
+                          onChange={(e) => setPForm({ ...pForm, payment_username: e.target.value })}
+                          className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-700 text-[11px]">Password Portal</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. RahasiaVendor123!"
+                          value={pForm.payment_password}
+                          onChange={(e) => setPForm({ ...pForm, payment_password: e.target.value })}
+                          className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-700 text-[11px]">Catatan Portal / Petunjuk Pembayaran</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Contoh: No. Pelanggan 1029384, tagihan terbit tgl 1 tiap bulan, bayar via VA BCA."
+                        value={pForm.payment_notes}
+                        onChange={(e) => setPForm({ ...pForm, payment_notes: e.target.value })}
+                        className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs focus:border-blue-500 focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    <div className="bg-white/90 border border-blue-100 rounded-lg p-2.5 text-[11px] text-blue-700 flex items-start gap-2">
+                      <span className="shrink-0 text-xs">💡</span>
+                      <span className="leading-relaxed">
+                        Data portal ini otomatis tampil di <strong>TV Wallboard Kalender</strong> & <strong>Detail Tagihan</strong>, sehingga tim Finance tidak perlu mencari link dan password lagi saat akan membayar.
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-800">Status</label>
-                <select value={pForm.status} onChange={(e) => setPForm({ ...pForm, status: e.target.value })} className="w-full border rounded-lg p-2 mt-1">
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-3 border-t">
-                <button type="button" onClick={() => setPModalOpen(false)} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-                  {submitting ? 'Saving...' : 'Save Provider'}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setPModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg text-xs transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 text-xs shadow-xs transition-colors"
+                >
+                  {submitting ? 'Menyimpan...' : 'Simpan Provider'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
+      {deleteTarget && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
             <div className="flex items-center gap-3 text-rose-600">
               <AlertCircle size={24} />

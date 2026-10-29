@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { 
   CreditCard, 
@@ -1185,14 +1186,15 @@ export default function PaymentMonitoringPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================= */}
       {/* MODAL 2: SINGLE MARK AS PAID                             */}
       {/* ========================================================= */}
-      {payModalItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      {payModalItem && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-base">Proses Pembayaran Tagihan</h3>
@@ -1435,7 +1437,7 @@ export default function PaymentMonitoringPage() {
       {/* MODAL 2B: QUICK DIRECT MARK AS PAID (INSTANT PAID)        */}
       {/* ========================================================= */}
       {quickPayModalItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
@@ -1531,7 +1533,7 @@ export default function PaymentMonitoringPage() {
       {/* MODAL 3: BULK MARK AS PAID                                */}
       {/* ========================================================= */}
       {bulkPayModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-base">Pelunasan Massal ({selectedIds.length} Invoice Tagihan)</h3>
@@ -1601,8 +1603,8 @@ export default function PaymentMonitoringPage() {
       {/* ========================================================= */}
       {/* MODAL 4: DETAIL TAGIHAN & INVOICE VENDOR                  */}
       {/* ========================================================= */}
-      {detailItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      {detailItem && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
@@ -1728,7 +1730,8 @@ export default function PaymentMonitoringPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
