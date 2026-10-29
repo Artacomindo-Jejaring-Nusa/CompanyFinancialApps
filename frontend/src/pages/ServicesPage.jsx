@@ -1791,12 +1791,12 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
         document.body
       )}
 
-      {/* 1. Dynamic Category Add / Edit Service Modal (CREATE & UPDATE) */}
+      {/* 1. Dynamic Category Add / Edit Service Modal (CREATE & UPDATE) - Wide 2-Column Layout */}
       {modalOpen && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-2xl my-8">
+          <div className="bg-white border border-slate-200/80 rounded-2xl w-full max-w-5xl p-6 space-y-4 shadow-2xl my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
               <div>
                 <h3 className="font-display text-headline-md font-bold text-slate-900">
                   {editingItem ? `Edit Layanan: ${editingItem.service_name}` : 'Pendaftaran Layanan Baru'}
@@ -1811,7 +1811,7 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
             </div>
 
             {/* Category Selector Tabs inside Modal */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-100 rounded-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-100 rounded-lg shrink-0">
               <button
                 type="button"
                 onClick={() => switchFormCategory('INTERNET')}
@@ -1862,186 +1862,275 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
               {/* =================================================== */}
-              {/* CATEGORY 1: INTERNET & FO TOKO (ALFAMART / DC / ISP) */}
+              {/* CATEGORY 1: INTERNET & FO TOKO (WIDE 2-COLUMN LAYOUT) */}
               {/* =================================================== */}
               {formCategory === 'INTERNET' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="font-semibold text-slate-800">Nama Toko / Outlet / Layanan *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. ALFAMART BENDUNGAN HILIR / ALFAMART ALAM SUTERA"
-                      value={formData.service_name}
-                      onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-blue-600 font-semibold"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Kolom 1 (Kiri): Data Teknis & Lokasi Sirkuit */}
+                  <div className="space-y-3 bg-slate-50/60 p-4 rounded-xl border border-slate-200/80">
+                    <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wide border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
+                      <Globe size={14} className="text-blue-600" />
+                      <span>Data Teknis & Lokasi Sirkuit FO</span>
+                    </div>
 
-                  <div>
-                    <label className="font-semibold text-slate-800">Tipe Layanan FO *</label>
-                    <select
-                      required
-                      value={formData.service_type_id}
-                      onChange={handleServiceTypeChange}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                    >
-                      <option value="">Pilih Tipe FO...</option>
-                      {serviceTypes.filter(isInternetService).map((st) => (
-                        <option key={st.id} value={st.id}>{st.name}</option>
-                      ))}
-                      {serviceTypes.filter((st) => !isInternetService(st)).map((st) => (
-                        <option key={st.id} value={st.id}>{st.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Provider FO / ISP *</label>
-                    <select
-                      required
-                      value={formData.provider_id}
-                      onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                    >
-                      <option value="">Pilih Provider...</option>
-                      {providers.map((p) => (
-                        <option key={p.id} value={p.id}>{p.provider_name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Customer Entity *</label>
-                    <select
-                      required
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1"
-                    >
-                      <option value="">Pilih Customer...</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>{c.customer_name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Circuit ID (CID) *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 4366517600078840"
-                      value={formData.cid}
-                      onChange={(e) => setFormData({ ...formData, cid: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Site ID Toko & Distribution Center (DC)</label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div>
+                      <label className="font-semibold text-slate-800">Nama Toko / Outlet / Layanan *</label>
                       <input
                         type="text"
-                        placeholder="Site ID (e.g. 1K72)"
-                        value={formData.site_id}
-                        onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono"
-                      />
-                      <input
-                        type="text"
-                        placeholder="DC (e.g. DC Balaraja)"
-                        value={formData.site_name}
-                        onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Lokasi / Alamat Toko</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Jl. Bendungan Hilir No. 45, Jakarta Pusat"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 mt-1 text-xs"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Rincian Komponen Biaya (HPP + PPN + Admin)</span>
-                      <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11% dari HPP</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700">HPP / Tarif Dasar *</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          required
-                          placeholder="e.g. 6756757"
-                          value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
-                          onChange={(e) => handleHppChange(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700">PPN 11% (IDR)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="e.g. 743243"
-                          value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
-                          onChange={(e) => handleTaxChange(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700">Biaya Admin / Charge</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="e.g. 6500"
-                          value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
-                          onChange={(e) => handleBankChargeChange(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between bg-blue-50/70 border border-blue-100 rounded-lg px-3 py-2">
-                      <span className="text-xs font-bold text-blue-900">Total Tagihan (HPP + PPN + Admin):</span>
-                      <span className="font-mono font-bold text-sm text-blue-700">
-                        {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-800">Siklus & Tgl Jatuh Tempo Rutin *</label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <select
-                        value={formData.billing_cycle}
-                        onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                      >
-                        <option value="MONTHLY">MONTHLY (Bulanan)</option>
-                        <option value="QUARTERLY">QUARTERLY (Triwulan)</option>
-                        <option value="YEARLY">YEARLY (Tahunan)</option>
-                      </select>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
                         required
-                        placeholder="Tgl (1-31)"
-                        value={formData.due_day}
-                        onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono"
+                        placeholder="e.g. ALFAMART BENDUNGAN HILIR / ALFAMART ALAM SUTERA"
+                        value={formData.service_name}
+                        onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 focus:ring-1 focus:ring-blue-600 font-semibold"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-semibold text-slate-800">Tipe Layanan FO *</label>
+                        <select
+                          required
+                          value={formData.service_type_id}
+                          onChange={handleServiceTypeChange}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1"
+                        >
+                          <option value="">Pilih Tipe FO...</option>
+                          {serviceTypes.filter(isInternetService).map((st) => (
+                            <option key={st.id} value={st.id}>{st.name}</option>
+                          ))}
+                          {serviceTypes.filter((st) => !isInternetService(st)).map((st) => (
+                            <option key={st.id} value={st.id}>{st.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-800">Provider FO / ISP *</label>
+                        <select
+                          required
+                          value={formData.provider_id}
+                          onChange={(e) => setFormData({ ...formData, provider_id: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1"
+                        >
+                          <option value="">Pilih Provider...</option>
+                          {providers.map((p) => (
+                            <option key={p.id} value={p.id}>{p.provider_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-semibold text-slate-800">Customer Entity *</label>
+                        <select
+                          required
+                          value={formData.customer_id}
+                          onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1"
+                        >
+                          <option value="">Pilih Customer...</option>
+                          {customers.map((c) => (
+                            <option key={c.id} value={c.id}>{c.customer_name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-800">Circuit ID (CID) *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 4366517600078840"
+                          value={formData.cid}
+                          onChange={(e) => setFormData({ ...formData, cid: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-semibold text-slate-800">Site ID Toko</label>
+                        <input
+                          type="text"
+                          placeholder="Site ID (e.g. 1K72)"
+                          value={formData.site_id}
+                          onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-semibold text-slate-800">Distribution Center (DC)</label>
+                        <input
+                          type="text"
+                          placeholder="DC (e.g. DC Balaraja)"
+                          value={formData.site_name}
+                          onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-800">Lokasi / Alamat Toko</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Jl. Bendungan Hilir No. 45, Jakarta Pusat"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-1 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-800">Siklus & Tgl Jatuh Tempo Rutin *</label>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <select
+                          value={formData.billing_cycle}
+                          onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs"
+                        >
+                          <option value="MONTHLY">MONTHLY (Bulanan)</option>
+                          <option value="QUARTERLY">QUARTERLY (Triwulan)</option>
+                          <option value="YEARLY">YEARLY (Tahunan)</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          required
+                          placeholder="Tgl (1-31)"
+                          value={formData.due_day}
+                          onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Kolom 2 (Kanan): Rincian Biaya & Portal Pembayaran */}
+                  <div className="space-y-3 flex flex-col justify-between">
+                    {/* Rincian Komponen Biaya */}
+                    <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Receipt size={14} className="text-emerald-600" />
+                          <span>Rincian Biaya (HPP + PPN + Admin)</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">Auto PPN 11%</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700">HPP / Dasar *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            placeholder="e.g. 6756757"
+                            value={formData.attributes?.hpp !== undefined ? formData.attributes.hpp : ''}
+                            onChange={(e) => handleHppChange(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700">PPN 11%</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 743243"
+                            value={formData.attributes?.tax !== undefined ? formData.attributes.tax : ''}
+                            onChange={(e) => handleTaxChange(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-amber-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700">Biaya Admin</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 6500"
+                            value={formData.attributes?.bank_charge !== undefined ? formData.attributes.bank_charge : ''}
+                            onChange={(e) => handleBankChargeChange(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 mt-0.5 font-mono font-bold text-xs text-blue-600"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between bg-blue-50/70 border border-blue-100 rounded-lg px-3 py-2">
+                        <span className="text-xs font-bold text-blue-900">Total Tagihan Bulanan:</span>
+                        <span className="font-mono font-bold text-sm text-blue-700">
+                          {formatIDR(parseFloat(formData.amount || 0) + parseFloat(formData.attributes?.bank_charge || 0))}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Section Kredensial Portal Pembayaran Vendor (Khusus Titik Ini) */}
+                    <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2.5 flex-1">
+                      <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                        <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                          🌐 Akses Kredensial Portal Pembayaran (Khusus Titik Ini)
+                        </div>
+                        <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full font-bold">
+                          Spesifik ID Sirkuit
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">
+                            ID Pelanggan / User Portal
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={formData.cid || 'e.g. 1029384'}
+                            value={formData.attributes?.portal_username || ''}
+                            onChange={(e) => handleAttributeChange('portal_username', e.target.value)}
+                            className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">
+                            Password Portal
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Rahasia123!"
+                            value={formData.attributes?.portal_password || ''}
+                            onChange={(e) => handleAttributeChange('portal_password', e.target.value)}
+                            className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">
+                            Custom Link Portal (Opsional)
+                          </label>
+                          <input
+                            type="url"
+                            placeholder="Otomatis mengikuti Provider"
+                            value={formData.attributes?.portal_url || ''}
+                            onChange={(e) => handleAttributeChange('portal_url', e.target.value)}
+                            className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono text-slate-800 focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">
+                            Catatan Pembayaran Khusus
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Bayar tgl 20 via VA"
+                            value={formData.attributes?.portal_notes || ''}
+                            onChange={(e) => handleAttributeChange('portal_notes', e.target.value)}
+                            className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2592,7 +2681,8 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                   </div>
                 </div>
               )}
-              {/* Kredensial Portal Pembayaran Khusus Layanan / Sirkuit Ini */}
+              {/* Kredensial Portal Pembayaran Khusus Layanan / Sirkuit Ini (Untuk Kategori Non-Internet) */}
+              {formCategory !== 'INTERNET' && (
               <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between border-b border-blue-100 pb-2">
                   <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
@@ -2665,7 +2755,9 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
+              )}
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
