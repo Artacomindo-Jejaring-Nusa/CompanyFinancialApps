@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
@@ -2592,6 +2592,79 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                   </div>
                 </div>
               )}
+              {/* Kredensial Portal Pembayaran Khusus Layanan / Sirkuit Ini */}
+              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                  <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                    🌐 Akses Kredensial Portal Pembayaran Vendor (Khusus Titik Ini)
+                  </div>
+                  <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full font-bold">
+                    ID Pelanggan & Password Spesifik
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      ID Pelanggan / No. Akun Portal (Khusus Layanan Ini)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={formData.cid || formData.contract_number || 'e.g. 1029384 / NO-PEL-001'}
+                      value={formData.attributes?.portal_username || ''}
+                      onChange={(e) => handleAttributeChange('portal_username', e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Kosongkan jika ID login sama dengan CID / Nomor Kontrak.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Password Portal (Khusus Layanan Ini)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahasia123! / PIN Portal"
+                      value={formData.attributes?.portal_password || ''}
+                      onChange={(e) => handleAttributeChange('portal_password', e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Password login portal invoice khusus untuk ID pelanggan titik ini.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Custom Link Pembayaran / Invoice (Opsional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="Otomatis mengikuti URL Provider jika dikosongkan"
+                      value={formData.attributes?.portal_url || ''}
+                      onChange={(e) => handleAttributeChange('portal_url', e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs font-mono text-slate-800 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Catatan Pembayaran Khusus Titik Ini
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Pembayaran via VA BCA di portal tgl 20"
+                      value={formData.attributes?.portal_notes || ''}
+                      onChange={(e) => handleAttributeChange('portal_notes', e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-lg p-2 mt-1 text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -2762,6 +2835,78 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
                 </div>
               )}
             </div>
+
+              {/* Info Portal Pembayaran Khusus Layanan Ini */}
+              {(() => {
+                const prov = detailItem.provider || {};
+                const attrs = detailItem.attributes || {};
+                const url = attrs.portal_url || prov.payment_url || '';
+                const username = attrs.portal_username || detailItem.cid || detailItem.contract_number || prov.payment_username || '';
+                const password = attrs.portal_password || prov.payment_password || '';
+                const notes = attrs.portal_notes || prov.payment_notes || '';
+                const hasInfo = url || username || password || notes;
+
+                if (!hasInfo) return null;
+
+                return (
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2 mt-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-blue-700 flex items-center gap-1.5">
+                        🌐 Info Portal Pembayaran Vendor ({prov.provider_name || 'Vendor'})
+                      </span>
+                      {url && (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold transition-colors"
+                        >
+                          Buka Portal ↗
+                        </a>
+                      )}
+                    </div>
+
+                    {url && (
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">URL Portal</div>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline text-xs font-mono font-medium break-all"
+                        >
+                          {url}
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 bg-white border border-blue-100 rounded-lg p-2">
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">
+                          ID Pelanggan / User {attrs.portal_username ? '(Spesifik Sirkuit)' : '(CID)'}
+                        </div>
+                        <div className="font-mono font-bold text-slate-800 text-xs mt-0.5 select-all break-all">
+                          {username || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">
+                          Password Portal {attrs.portal_password ? '(Spesifik Sirkuit)' : ''}
+                        </div>
+                        <div className="font-mono font-bold text-slate-800 text-xs mt-0.5 select-all break-all">
+                          {password || '-'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {notes && (
+                      <div className="text-[11px] text-slate-600 pt-1 border-t border-blue-100 italic">
+                        Catatan: {notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             <div className="flex justify-end pt-2 border-t border-slate-200">
               <button

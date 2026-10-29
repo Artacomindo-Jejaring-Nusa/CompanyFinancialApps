@@ -1644,70 +1644,91 @@ export default function PaymentMonitoringPage() {
                   <div className="text-slate-500 font-medium">Customer Entitas</div>
                   <div className="font-bold text-slate-900 mt-0.5">{detailItem.service?.customer?.customer_name}</div>
                 </div>
-                {/* Info Portal Pembayaran Provider */}
+                {/* Info Portal Pembayaran (Inherit Bertingkat: Sirkuit + Provider) */}
                 <div className="col-span-2 pt-2 border-t border-slate-200">
-                  <div className="text-slate-700 font-bold text-xs flex items-center justify-between mb-1.5">
-                    <span className="flex items-center gap-1.5 text-blue-700">
-                      🌐 Info Portal Pembayaran Vendor ({detailItem.service?.provider?.provider_name || 'Vendor'})
-                    </span>
-                    {detailItem.service?.provider?.payment_url && (
-                      <a
-                        href={detailItem.service.provider.payment_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-semibold transition-colors"
-                      >
-                        Buka Portal ↗
-                      </a>
-                    )}
-                  </div>
-
                   {(() => {
-                    const prov = detailItem.service?.provider;
-                    const hasPortal = prov && (prov.payment_url || prov.payment_username || prov.payment_password || prov.payment_notes);
-                    if (hasPortal) {
-                      return (
-                        <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-2.5 space-y-2 mt-1">
-                          {prov.payment_url && (
-                            <div>
-                              <div className="text-[10px] font-bold text-slate-500 uppercase">URL / Link Pembayaran</div>
-                              <a
-                                href={prov.payment_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline text-xs font-mono font-semibold break-all"
-                              >
-                                {prov.payment_url}
-                              </a>
-                            </div>
-                          )}
-                          {(prov.payment_username || prov.payment_password) && (
-                            <div className="grid grid-cols-2 gap-2 bg-white border border-blue-100 rounded p-2">
-                              <div>
-                                <div className="text-[10px] font-bold text-slate-500 uppercase">ID / Username</div>
-                                <div className="font-mono font-bold text-slate-800 text-xs select-all mt-0.5 break-all">
-                                  {prov.payment_username || '-'}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-[10px] font-bold text-slate-500 uppercase">Password</div>
-                                <div className="font-mono font-bold text-slate-800 text-xs select-all mt-0.5 break-all">
-                                  {prov.payment_password || '-'}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          {prov.payment_notes && (
-                            <div className="text-[11px] text-slate-600 pt-1 border-t border-blue-100 italic">
-                              Catatan Portal: {prov.payment_notes}
-                            </div>
+                    const serv = detailItem.service || {};
+                    const prov = serv.provider || {};
+                    const attrs = serv.attributes || {};
+
+                    const portalUrl = attrs.portal_url || prov.payment_url || '';
+                    const portalUser = attrs.portal_username || serv.cid || serv.contract_number || prov.payment_username || '';
+                    const portalPass = attrs.portal_password || prov.payment_password || '';
+                    const portalNotes = attrs.portal_notes || prov.payment_notes || '';
+                    const isServiceLevel = Boolean(attrs.portal_username || attrs.portal_password);
+                    const hasPortal = Boolean(portalUrl || portalUser || portalPass || portalNotes);
+
+                    return (
+                      <div>
+                        <div className="text-slate-700 font-bold text-xs flex items-center justify-between mb-1.5">
+                          <span className="flex items-center gap-1.5 text-blue-700">
+                            🌐 Portal Pembayaran ({prov.provider_name || 'Vendor'})
+                            {isServiceLevel && (
+                              <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+                                Akun Spesifik Sirkuit
+                              </span>
+                            )}
+                          </span>
+                          {portalUrl && (
+                            <a
+                              href={portalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-0.5 rounded font-semibold transition-colors"
+                            >
+                              Buka Portal ↗
+                            </a>
                           )}
                         </div>
-                      );
-                    }
-                    return (
-                      <div className="text-slate-400 text-[11px] italic bg-slate-50 border border-slate-100 rounded p-2">
-                        Belum ada info portal pembayaran untuk vendor ini. Silakan atur di Master Data &gt; Providers.
+
+                        {hasPortal ? (
+                          <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-2.5 space-y-2 mt-1">
+                            {portalUrl && (
+                              <div>
+                                <div className="text-[10px] font-bold text-slate-500 uppercase">URL / Link Portal Pembayaran</div>
+                                <a
+                                  href={portalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline text-xs font-mono font-bold break-all"
+                                >
+                                  {portalUrl}
+                                </a>
+                              </div>
+                            )}
+
+                            {(portalUser || portalPass) && (
+                              <div className="grid grid-cols-2 gap-2 bg-white border border-blue-100 rounded-lg p-2">
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-500 uppercase">
+                                    ID Pelanggan / User {attrs.portal_username ? '(Khusus Sirkuit)' : '(CID / Vendor)'}
+                                  </div>
+                                  <div className="font-mono font-bold text-slate-900 text-xs select-all mt-0.5 break-all">
+                                    {portalUser || '-'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-bold text-slate-500 uppercase">
+                                    Password Portal {attrs.portal_password ? '(Khusus Sirkuit)' : '(Vendor)'}
+                                  </div>
+                                  <div className="font-mono font-bold text-slate-900 text-xs select-all mt-0.5 break-all">
+                                    {portalPass || '-'}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {portalNotes && (
+                              <div className="text-[11px] text-slate-600 pt-1 border-t border-blue-100 italic">
+                                Catatan Pembayaran: {portalNotes}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 text-[11px] italic bg-slate-50 border border-slate-100 rounded p-2">
+                            Belum ada info portal pembayaran untuk sirkuit / vendor ini.
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
