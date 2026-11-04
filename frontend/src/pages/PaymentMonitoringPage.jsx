@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { 
@@ -990,7 +990,7 @@ export default function PaymentMonitoringPage() {
       {/* ========================================================= */}
       {/* MODAL 1: CATAT INVOICE MASUK (INCOMING VENDOR INVOICE)    */}
       {/* ========================================================= */}
-      {invoiceModalOpen && (
+      {invoiceModalOpen && createPortal(
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-2xl p-6 space-y-4 shadow-xl my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -1430,13 +1430,14 @@ export default function PaymentMonitoringPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================= */}
       {/* MODAL 2B: QUICK DIRECT MARK AS PAID (INSTANT PAID)        */}
       {/* ========================================================= */}
-      {quickPayModalItem && (
+      {quickPayModalItem && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-md p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -1526,13 +1527,14 @@ export default function PaymentMonitoringPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================= */}
       {/* MODAL 3: BULK MARK AS PAID                                */}
       {/* ========================================================= */}
-      {bulkPayModalOpen && (
+      {bulkPayModalOpen && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-slate-200/80 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -1597,7 +1599,8 @@ export default function PaymentMonitoringPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================= */}
