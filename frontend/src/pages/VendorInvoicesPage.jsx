@@ -272,7 +272,13 @@ export default function VendorInvoicesPage() {
 
       if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
         hpp = parseFloat(item.service.attributes.hpp) || 0;
-        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+        if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+          tax11 = parseFloat(item.service.attributes.tax) || 0;
+        } else if (item.service?.attributes?.include_ppn) {
+          tax11 = Math.round(hpp * 0.11);
+        } else {
+          tax11 = 0;
+        }
       } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
         hpp = Math.round(totalBaseAmount / 1.11);
         tax11 = totalBaseAmount - hpp;
@@ -899,7 +905,13 @@ export default function VendorInvoicesPage() {
 
                       if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
                         hpp = parseFloat(item.service.attributes.hpp) || 0;
-                        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+                        if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+          tax11 = parseFloat(item.service.attributes.tax) || 0;
+        } else if (item.service?.attributes?.include_ppn) {
+          tax11 = Math.round(hpp * 0.11);
+        } else {
+          tax11 = 0;
+        }
                       } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
                         hpp = Math.round(totalBaseAmount / 1.11);
                         tax11 = totalBaseAmount - hpp;

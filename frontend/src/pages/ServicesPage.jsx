@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
@@ -853,7 +853,13 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
       if (item.attributes?.hpp !== undefined && item.attributes?.hpp !== null) {
         hpp = parseFloat(item.attributes.hpp) || 0;
-        tax11 = parseFloat(item.attributes.tax) || (totalBaseAmount - hpp);
+        if (item.attributes?.tax !== undefined && item.attributes?.tax !== null) {
+          tax11 = parseFloat(item.attributes.tax) || 0;
+        } else if (item.attributes?.include_ppn) {
+          tax11 = Math.round(hpp * 0.11);
+        } else {
+          tax11 = 0;
+        }
       } else if (item.attributes?.include_ppn) {
         hpp = Math.round(totalBaseAmount / 1.11);
         tax11 = totalBaseAmount - hpp;

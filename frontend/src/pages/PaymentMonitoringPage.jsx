@@ -219,13 +219,17 @@ export default function PaymentMonitoringPage() {
       const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
       const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
-      // Extract bank admin fee / charge if recorded in notes or attributes
+      // Extract bank admin fee / charge if recorded in attributes or notes
       let bkCharge = 0;
-      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
-      if (feeMatch) {
-        bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
-      } else if (item.attributes?.bank_charge) {
-        bkCharge = parseFloat(item.attributes.bank_charge) || 0;
+      if (item.service?.attributes?.bank_charge !== undefined && item.service?.attributes?.bank_charge !== null) {
+        bkCharge = parseFloat(item.service.attributes.bank_charge) || 0;
+      } else {
+        const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+        if (feeMatch) {
+          bkCharge = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+        } else if (item.attributes?.bank_charge) {
+          bkCharge = parseFloat(item.attributes.bank_charge) || 0;
+        }
       }
 
       // Check if PPN / Tax breakdown is set in service attributes or service notes
@@ -235,7 +239,13 @@ export default function PaymentMonitoringPage() {
 
       if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
         hpp = parseFloat(item.service.attributes.hpp) || 0;
-        tax11 = parseFloat(item.service.attributes.tax) || (totalBaseAmount - hpp);
+        if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+          tax11 = parseFloat(item.service.attributes.tax) || 0;
+        } else if (item.service?.attributes?.include_ppn) {
+          tax11 = Math.round(hpp * 0.11);
+        } else {
+          tax11 = 0;
+        }
       } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
         hpp = Math.round(totalBaseAmount / 1.11);
         tax11 = totalBaseAmount - hpp;
@@ -310,13 +320,19 @@ export default function PaymentMonitoringPage() {
 
     if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
       savedHpp = parseFloat(item.service.attributes.hpp) || 0;
-      savedTax = parseFloat(item.service.attributes.tax) || (base - savedHpp);
+      if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+        savedTax = parseFloat(item.service.attributes.tax) || 0;
+      } else if (item.service?.attributes?.include_ppn) {
+        savedTax = Math.round(savedHpp * 0.11);
+      } else {
+        savedTax = 0;
+      }
     } else {
       savedHpp = Math.round(base / 1.11);
       savedTax = base - savedHpp;
     }
 
-    if (item.service?.attributes?.bank_charge) {
+    if (item.service?.attributes?.bank_charge !== undefined && item.service?.attributes?.bank_charge !== null) {
       savedAdminFee = parseFloat(item.service.attributes.bank_charge) || 0;
     } else {
       const notes = item.notes || '';
@@ -841,7 +857,13 @@ export default function PaymentMonitoringPage() {
 
                       if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
                         hpp = parseFloat(item.service.attributes.hpp) || 0;
-                        tax11 = parseFloat(item.service.attributes.tax) || (totalBase - hpp);
+                        if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+                          tax11 = parseFloat(item.service.attributes.tax) || 0;
+                        } else if (item.service?.attributes?.include_ppn) {
+                          tax11 = Math.round(hpp * 0.11);
+                        } else {
+                          tax11 = 0;
+                        }
                       } else if (item.service?.attributes?.include_ppn || /ppn|tax/i.test(notes) || /ppn|tax/i.test(item.service?.service_name || '')) {
                         hpp = Math.round(totalBase / 1.11);
                         tax11 = totalBase - hpp;
@@ -850,7 +872,7 @@ export default function PaymentMonitoringPage() {
                         tax11 = 0;
                       }
 
-                      if (item.service?.attributes?.bank_charge) {
+                      if (item.service?.attributes?.bank_charge !== undefined && item.service?.attributes?.bank_charge !== null) {
                         bkCharge = parseFloat(item.service.attributes.bank_charge) || 0;
                       } else {
                         const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
@@ -1210,7 +1232,13 @@ export default function PaymentMonitoringPage() {
               let tax = 0;
               if (payModalItem.service?.attributes?.hpp !== undefined && payModalItem.service?.attributes?.hpp !== null) {
                 hpp = parseFloat(payModalItem.service.attributes.hpp) || 0;
-                tax = parseFloat(payModalItem.service.attributes.tax) || (base - hpp);
+                if (payModalItem.service?.attributes?.tax !== undefined && payModalItem.service?.attributes?.tax !== null) {
+                  tax = parseFloat(payModalItem.service.attributes.tax) || 0;
+                } else if (payModalItem.service?.attributes?.include_ppn) {
+                  tax = Math.round(hpp * 0.11);
+                } else {
+                  tax = 0;
+                }
               } else {
                 hpp = Math.round(base / 1.11);
                 tax = base - hpp;
@@ -1637,7 +1665,17 @@ export default function PaymentMonitoringPage() {
                 </div>
                 <div>
                   <div className="text-slate-500 font-medium">Total Nominal Tagihan</div>
-                  <div className="font-mono font-bold text-blue-700 mt-0.5">{formatIDR(detailItem.amount)}</div>
+                  <div className="font-mono font-bold text-blue-700 mt-0.5">{(() => {
+                    const serv = detailItem.service || {};
+                    const attrs = serv.attributes || {};
+                    if (attrs.hpp !== undefined && attrs.hpp !== null) {
+                      const h = parseFloat(attrs.hpp) || 0;
+                      const t = attrs.tax !== undefined && attrs.tax !== null ? (parseFloat(attrs.tax) || 0) : (attrs.include_ppn ? Math.round(h * 0.11) : 0);
+                      const c = parseFloat(attrs.bank_charge) || 0;
+                      return formatIDR(h + t + c);
+                    }
+                    return formatIDR(detailItem.amount);
+                  })()}</div>
                 </div>
                 <div>
                   <div className="text-slate-500 font-medium">Circuit ID / Contract</div>

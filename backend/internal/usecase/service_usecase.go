@@ -89,6 +89,11 @@ func (u *serviceUsecase) Update(ctx context.Context, id uuid.UUID, service *doma
 		return err
 	}
 
+	// Sync unpaid upcoming payment schedules to updated service amount
+	if service.Amount > 0 {
+		_ = u.paymentScheduleRepo.UpdateUnpaidAmountByServiceID(ctx, id, service.Amount)
+	}
+
 	newVal, _ := json.Marshal(existing)
 	_ = u.auditLogRepo.Create(ctx, &domain.AuditLog{
 		ID:        uuid.New(),

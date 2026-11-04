@@ -44,6 +44,7 @@ type PaymentScheduleRepository interface {
 	Update(ctx context.Context, schedule *PaymentSchedule) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 	BatchCreate(ctx context.Context, schedules []PaymentSchedule) error
+	UpdateUnpaidAmountByServiceID(ctx context.Context, serviceID uuid.UUID, newAmount float64) error
 }
 
 type PaymentScheduleUsecase interface {

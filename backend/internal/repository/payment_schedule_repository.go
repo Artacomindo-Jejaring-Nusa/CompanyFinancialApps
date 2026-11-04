@@ -166,3 +166,14 @@ func (r *paymentScheduleRepository) BatchCreate(ctx context.Context, schedules [
 	// Use ON CONFLICT DO NOTHING for idempotency
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&schedules).Error
 }
+
+
+func (r *paymentScheduleRepository) UpdateUnpaidAmountByServiceID(ctx context.Context, serviceID uuid.UUID, newAmount float64) error {
+	return r.db.WithContext(ctx).
+		Model(&domain.PaymentSchedule{}).
+		Where("service_id = ? AND status NOT IN ('PAID', 'CANCELLED')", serviceID).
+		Updates(map[string]interface{}{
+			"amount":           newAmount,
+			"remaining_amount": newAmount,
+		}).Error
+}
