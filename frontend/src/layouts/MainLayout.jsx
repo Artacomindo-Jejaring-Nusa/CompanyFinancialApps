@@ -327,6 +327,17 @@ export default function MainLayout() {
       ],
     },
     {
+      title: 'REKONSILIASI & CONVERTER',
+      items: [
+        { 
+          name: 'Converter Status Indihome', 
+          path: '/reconciliation/indihome', 
+          icon: FileSpreadsheet,
+          badge: 'INDIHOME'
+        },
+      ],
+    },
+    {
       title: 'MASTER DATA',
       items: [
         { name: 'Customers', path: '/master-data?tab=CUSTOMERS', icon: Building2 },

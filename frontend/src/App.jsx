@@ -16,6 +16,7 @@ import ReportsPage from './pages/ReportsPage';
 import HrmsClaimsReportPage from './pages/HrmsClaimsReportPage';
 import UserManagementPage from './pages/UserManagementPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import IndihomeConverterPage from './pages/IndihomeConverterPage';
 
 function ProtectedRoute({ children, roles }) {
   const { isAuthenticated, hasRole } = useAuthStore();
@@ -70,6 +71,10 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="hrms-reports" element={<HrmsClaimsReportPage />} />
           <Route path="hrms/claims" element={<HrmsClaimsReportPage />} />
+
+          {/* Indihome Reconciliation & Transaction Status Converter */}
+          <Route path="reconciliation/indihome" element={<IndihomeConverterPage />} />
+          <Route path="indihome-converter" element={<Navigate to="/reconciliation/indihome" replace />} />
 
           <Route
             path="users"
