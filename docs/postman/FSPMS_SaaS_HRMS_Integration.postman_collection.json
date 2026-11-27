@@ -1,0 +1,338 @@
+{
+	"info": {
+		"_postman_id": "a918f62c-8431-419b-b235-9491dc67f918",
+		"name": "FSPMS - SaaS HRMS Integration API",
+		"description": "Koleksi API resmi FSPMS (Financial Service Payment Monitoring System) untuk integrasi laporan realisasi pembayaran tagihan, inventaris sirkuit, dan biaya operasional ke platform SaaS HRMS (PT Artacomindo Jejaring Nusa).\n\nBase URL Production: `https://finance.ajnusa.com/api/v1`\nAutentikasi: Header `X-API-Key: {{apiKey}}` atau `Authorization: Bearer {{apiKey}}`",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{apiKey}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			},
+			{
+				"key": "in",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global pre-request script for SaaS HRMS Integration"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"pm.test(\"Status code is 200 OK\", function () {",
+					"    pm.response.to.have.status(200);",
+					"});",
+					"pm.test(\"Response format is valid JSON and successful\", function () {",
+					"    var jsonData = pm.response.json();",
+					"    pm.expect(jsonData.success).to.eql(true);",
+					"});"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "1. Health & Connection",
+			"item": [
+				{
+					"name": "Health Check & API Key Validation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"health"
+							]
+						},
+						"description": "Verifikasi status koneksi API, status database, masa berlaku API Key, dan daftar scope perizinan."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Laporan Pembayaran (SaaS HRMS Expenses)",
+			"item": [
+				{
+					"name": "Get Payment Reports (By Period)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payment-reports?period={{period}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payment-reports"
+							],
+							"query": [
+								{
+									"key": "period",
+									"value": "{{period}}",
+									"description": "Format YYYY-MM (e.g. 2026-11)"
+								}
+							]
+						},
+						"description": "Mengambil ringkasan pembayaran bulanan (total tagihan, total terbayar, sisa tertunggak) beserta rincian breakdown per vendor untuk sinkronisasi beban operasional ke SaaS HRMS."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Reports (By Date Range)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payment-reports?start_date=2026-11-01&end_date=2026-11-30",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payment-reports"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "2026-11-01",
+									"description": "Tanggal awal rentang pembayaran (YYYY-MM-DD)"
+								},
+								{
+									"key": "end_date",
+									"value": "2026-11-30",
+									"description": "Tanggal akhir rentang pembayaran (YYYY-MM-DD)"
+								}
+							]
+						},
+						"description": "Mengambil agregasi data pembayaran berdasarkan rentang tanggal tertentu."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Detail Transaksi Pembayaran (Payments List)",
+			"item": [
+				{
+					"name": "Get All Payments (Paginated)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payments?page=1&limit=25",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payments"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Halaman data"
+								},
+								{
+									"key": "limit",
+									"value": "25",
+									"description": "Jumlah data per halaman (default: 25, max: 100)"
+								}
+							]
+						},
+						"description": "Mengambil daftar lengkap rincian sirkuit tagihan, nomor invoice vendor, referensi pembayaran transfer, dan status."
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Payments By Status (PAID / Lunas)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payments?status=PAID&page=1&limit=50",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payments"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "PAID",
+									"description": "Filter status: ALL, PAID, UPCOMING, DUE_SOON, OVERDUE"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Mengambil data tagihan yang sudah lunas dibayar (status PAID) untuk dicatat sebagai realisasi pengeluaran di SaaS HRMS."
+					},
+					"response": []
+				},
+				{
+					"name": "Filter Payments By Status (UPCOMING / Belum Lunas)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payments?status=UPCOMING&page=1&limit=50",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payments"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "UPCOMING"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Mengambil tagihan jatuh tempo mendatang untuk proyeksi cashflow di SaaS HRMS."
+					},
+					"response": []
+				},
+				{
+					"name": "Search Payments By Vendor or Circuit ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/integration/payments?search=MyRepublic&page=1&limit=25",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"integration",
+								"payments"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "MyRepublic",
+									"description": "Pencarian berdasarkan nama vendor, nama layanan, atau CID"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "25"
+								}
+							]
+						},
+						"description": "Mencari tagihan berdasarkan keyword spesifik."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://finance.ajnusa.com/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "fspms_live_ganti_dengan_key_anda",
+			"type": "string"
+		},
+		{
+			"key": "period",
+			"value": "2026-11",
+			"type": "string"
+		}
+	]
+}

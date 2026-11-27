@@ -24,8 +24,12 @@ import {
   FileText,
   Server,
   Zap,
-  Play
+  Play,
+  Download,
+  BookOpen
 } from 'lucide-react';
+
+const PROD_BASE_URL = 'https://finance.ajnusa.com/api/v1';
 
 export default function ApiIntegrationPage() {
   const [apiKeys, setApiKeys] = useState([]);
@@ -47,15 +51,20 @@ export default function ApiIntegrationPage() {
   const [activeCodeTab, setActiveCodeTab] = useState('curl'); // 'curl' | 'node' | 'python' | 'php'
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Postman state
+  const [copiedPostmanCol, setCopiedPostmanCol] = useState(false);
+  const [copiedPostmanEnv, setCopiedPostmanEnv] = useState(false);
+
   // Live API Tester State
   const [testEndpoint, setTestEndpoint] = useState('/integration/payment-reports');
   const [testApiKey, setTestApiKey] = useState('');
   const [testingApi, setTestingApi] = useState(false);
   const [testResponse, setTestResponse] = useState(null);
 
-  const baseUrl = window.location.origin.includes('localhost')
+  // In production it points to https://finance.ajnusa.com/api/v1, or local backend in dev
+  const activeBaseUrl = window.location.origin.includes('localhost')
     ? 'http://localhost:8080/api/v1'
-    : `${window.location.origin}/api/v1`;
+    : PROD_BASE_URL;
 
   useEffect(() => {
     fetchApiKeys();
@@ -133,15 +142,31 @@ export default function ApiIntegrationPage() {
     }
   };
 
-  const copyToClipboard = (text, isKey = false) => {
+  const copyToClipboard = (text, type = 'code') => {
     navigator.clipboard.writeText(text);
-    if (isKey) {
+    if (type === 'key') {
       setCopiedKey(true);
       setTimeout(() => setCopiedKey(false), 2500);
+    } else if (type === 'postman_col') {
+      setCopiedPostmanCol(true);
+      setTimeout(() => setCopiedPostmanCol(false), 2500);
+    } else if (type === 'postman_env') {
+      setCopiedPostmanEnv(true);
+      setTimeout(() => setCopiedPostmanEnv(false), 2500);
     } else {
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2500);
     }
+  };
+
+  // Download json file directly in browser
+  const triggerDownload = (url, filename) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Run live test request
@@ -151,7 +176,7 @@ export default function ApiIntegrationPage() {
     const keyToUse = testApiKey || (newKeyData?.plain_key) || (apiKeys.find(k => k.status === 'ACTIVE')?.key_prefix) || 'YOUR_API_KEY';
 
     try {
-      const res = await fetch(`${baseUrl}${testEndpoint}`, {
+      const res = await fetch(`${activeBaseUrl}${testEndpoint}`, {
         method: 'GET',
         headers: {
           'X-API-Key': keyToUse,
@@ -179,21 +204,21 @@ export default function ApiIntegrationPage() {
 
   const getCodeSnippet = () => {
     const keyPlaceholder = testApiKey || (newKeyData?.plain_key) || 'fspms_live_abcdef1234567890';
-    const targetUrl = `${baseUrl}/integration/payment-reports`;
+    const targetUrl = `${PROD_BASE_URL}/integration/payment-reports`;
 
     switch (activeCodeTab) {
       case 'curl':
-        return `# 1. Menggunakan Header X-API-Key (Direkomendasikan)
-curl -X GET "${targetUrl}" \\
+        return `# 1. Menggunakan Header X-API-Key (Standar Produksi)
+curl -X GET "${targetUrl}?period=2026-11" \\
   -H "X-API-Key: ${keyPlaceholder}" \\
   -H "Accept: application/json"
 
 # 2. Atau Menggunakan Authorization Bearer
-curl -X GET "${targetUrl}" \\
+curl -X GET "${targetUrl}?period=2026-11" \\
   -H "Authorization: Bearer ${keyPlaceholder}"`;
 
       case 'node':
-        return `// Contoh Integrasi di Node.js (Axios) untuk Platform SaaS HRMS
+        return `// Integrasi Node.js (Axios) untuk Platform SaaS HRMS
 import axios from 'axios';
 
 async function syncPaymentReportsToHRMS() {
@@ -204,13 +229,13 @@ async function syncPaymentReportsToHRMS() {
         'Accept': 'application/json'
       },
       params: {
-        period: '2026-11' // Opsional: filter periode tertentu
+        period: '2026-11' // Filter periode bulan tagihan
       }
     });
 
     console.log('Status Sinkronisasi:', response.data.success);
     console.log('Total Pembayaran:', response.data.data.summary.total_amount);
-    console.log('Rincian Vendor:', response.data.data.vendor_breakdown);
+    console.log('Rincian Beban Vendor:', response.data.data.vendor_breakdown);
     return response.data.data;
   } catch (error) {
     console.error('Gagal integrasi HRMS:', error.response?.data || error.message);
@@ -220,7 +245,7 @@ async function syncPaymentReportsToHRMS() {
 syncPaymentReportsToHRMS();`;
 
       case 'python':
-        return `# Contoh Integrasi di Python (requests) untuk Backend SaaS HRMS
+        return `# Integrasi Python (requests) untuk Backend SaaS HRMS
 import requests
 
 url = "${targetUrl}"
@@ -235,13 +260,14 @@ params = {
 response = requests.get(url, headers=headers, params=params)
 if response.status_code == 200:
     data = response.json()
-    print("Ringkasan Pembayaran Sukses:", data["data"]["summary"])
+    print("Ringkasan Pengeluaran Sukses:", data["data"]["summary"])
+    print("Breakdown per Vendor:", data["data"]["vendor_breakdown"])
 else:
     print(f"Error {response.status_code}:", response.text)`;
 
       case 'php':
         return `<?php
-// Contoh Integrasi di PHP / Laravel untuk SaaS HRMS
+// Integrasi PHP / Laravel untuk SaaS HRMS
 $apiKey = '${keyPlaceholder}';
 $url = '${targetUrl}?period=2026-11';
 
@@ -269,97 +295,95 @@ if ($httpCode === 200) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
               Settings &amp; Administration
             </span>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
               SaaS HRMS Integration
             </span>
           </div>
-          <h1 className="font-display text-headline-lg text-slate-900 font-bold mt-1.5 flex items-center gap-2.5">
-            <Key className="text-blue-600" size={28} />
+          <h1 className="text-xl sm:text-2xl text-slate-900 font-bold mt-1.5 flex items-center gap-2.5">
+            <Key className="text-blue-600" size={26} />
             <span>API Integration &amp; Developer Keys</span>
           </h1>
-          <p className="font-body-md text-slate-500 text-xs sm:text-sm mt-0.5">
-            Generate dan kelola API Key untuk integrasi otomatis laporan pembayaran tagihan, inventaris sirkuit, dan realisasi keuangan ke platform SaaS HRMS.
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Kelola API Key dan integrasi otomatis laporan pembayaran tagihan, inventaris sirkuit, dan pengeluaran operasional ke platform SaaS HRMS.
           </p>
         </div>
 
         <button
           onClick={() => setCreateModalOpen(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-lg shadow-xs transition-colors flex items-center gap-2 shrink-0"
         >
           <Plus size={16} />
           <span>Generate New API Key</span>
         </button>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Info Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Total API Keys</span>
+          <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <span>Total Kunci Dibuat</span>
             <Key size={16} className="text-blue-600" />
           </div>
-          <div className="font-display text-2xl font-bold text-slate-900 mt-2 font-mono">
+          <div className="text-2xl font-bold text-slate-900 mt-2">
             {apiKeys.length}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Kredensial terdaftar</div>
-        </div>
-
-        <div className="bg-white border border-emerald-200/80 rounded-xl p-4 shadow-2xs bg-gradient-to-br from-white to-emerald-50/20">
-          <div className="flex items-center justify-between text-emerald-700 text-xs font-bold">
-            <span>Active Keys</span>
-            <CheckCircle2 size={16} className="text-emerald-600" />
-          </div>
-          <div className="font-display text-2xl font-bold text-emerald-700 mt-2 font-mono">
-            {activeKeysCount}
-          </div>
-          <div className="text-[11px] text-emerald-700 mt-1">Siap menerima request</div>
+          <div className="text-[11px] text-slate-400 mt-1">Seluruh API Key terdaftar</div>
         </div>
 
         <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Available Endpoints</span>
-            <Server size={16} className="text-purple-600" />
+          <div className="flex items-center justify-between text-emerald-700 text-xs font-semibold">
+            <span>Kunci Aktif (Live)</span>
+            <ShieldCheck size={16} className="text-emerald-600" />
           </div>
-          <div className="font-display text-2xl font-bold text-slate-900 mt-2 font-mono">
-            3 Endpoints
+          <div className="text-2xl font-bold text-emerald-700 mt-2">
+            {activeKeysCount}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Reports, Payments, Health</div>
+          <div className="text-[11px] text-emerald-600 mt-1">Siap menerima request API</div>
         </div>
 
-        <div className="bg-white border border-blue-200/80 rounded-xl p-4 shadow-2xs bg-gradient-to-br from-white to-blue-50/30">
-          <div className="flex items-center justify-between text-blue-700 text-xs font-bold">
-            <span>Integration Status</span>
-            <Zap size={16} className="text-blue-600" />
+        <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
+          <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <span>Protokol Keamanan</span>
+            <Lock size={16} className="text-purple-600" />
           </div>
-          <div className="font-display text-xl sm:text-2xl font-black text-blue-800 mt-2">
-            REST v1 Ready
+          <div className="text-sm font-bold text-slate-800 mt-2">
+            SHA-256 Hash
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">X-API-Key / Bearer Auth</div>
+          <div className="text-[11px] text-slate-400 mt-1">One-time plain secret copy</div>
+        </div>
+
+        <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 shadow-2xs">
+          <div className="flex items-center justify-between text-blue-700 text-xs font-semibold">
+            <span>Production Base URL</span>
+            <Globe size={16} className="text-blue-600" />
+          </div>
+          <div className="text-xs font-bold font-mono text-blue-900 mt-2 truncate" title={PROD_BASE_URL}>
+            finance.ajnusa.com/api/v1
+          </div>
+          <div className="text-[11px] text-blue-600 mt-1">HTTPS RESTful API</div>
         </div>
       </div>
 
-      {/* Newly Generated API Key Alert Banner (One-Time Modal/Card) */}
+      {/* Newly Generated API Key Alert Banner */}
       {newKeyData && (
-        <div className="bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-5 shadow-sm space-y-3">
+        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 shadow-sm space-y-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-emerald-600 text-white rounded-xl">
-                <Check size={20} />
-              </div>
+              <ShieldCheck className="text-emerald-700 shrink-0" size={22} />
               <div>
                 <h3 className="font-bold text-emerald-950 text-sm">
-                  API Key Berhasil Dibuat: {newKeyData.name}
+                  API Key Baru Berhasil Dibuat: "{newKeyData.name}"
                 </h3>
                 <p className="text-xs text-emerald-800 mt-0.5">
-                  Salin API Key ini sekarang. Demi alasan keamanan, token rahasia lengkap <strong>tidak akan ditampilkan lagi</strong> setelah halaman ini ditutup.
+                  Salin kunci rahasia ini sekarang! Demi keamanan enkripsi, <strong>kunci ini hanya ditampilkan sekali saja</strong> dan tidak dapat dilihat lagi setelah halaman ditutup.
                 </p>
               </div>
             </div>
@@ -367,65 +391,152 @@ if ($httpCode === 200) {
               onClick={() => setNewKeyData(null)}
               className="text-emerald-700 hover:text-emerald-950 font-bold text-sm px-2 py-1"
             >
-              Tutup &times;
+              ✕
             </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2 bg-white border border-emerald-300 rounded-xl p-2.5 pl-3.5">
+          <div className="bg-white border border-emerald-200 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="font-mono text-xs font-bold text-slate-900 select-all break-all flex-1">
               {newKeyData.plain_key}
             </span>
             <button
-              onClick={() => copyToClipboard(newKeyData.plain_key, true)}
+              onClick={() => copyToClipboard(newKeyData.plain_key, 'key')}
               className={`
                 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0
                 ${copiedKey 
-                  ? 'bg-emerald-600 text-white' 
-                  : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'}
+                  ? 'bg-emerald-700 text-white' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'}
               `}
             >
               {copiedKey ? <Check size={14} /> : <Copy size={14} />}
-              <span>{copiedKey ? 'Tersalin ke Clipboard!' : 'Salin API Key'}</span>
+              <span>{copiedKey ? 'Tersalin!' : 'Salin API Key'}</span>
             </button>
           </div>
 
-          <div className="text-[11px] text-emerald-800 flex items-center gap-2">
-            <ShieldCheck size={14} className="shrink-0 text-emerald-600" />
+          <div className="text-[11px] text-emerald-800 flex items-center gap-1.5">
+            <Lock size={12} />
             <span>Gunakan key ini pada header request: <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-mono font-bold">X-API-Key: {newKeyData.key_prefix}...</code></span>
           </div>
         </div>
       )}
 
-      {/* API Keys Table */}
+      {/* POSTMAN COLLECTION & ENVIRONMENT DOWNLOAD CARD */}
+      <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/60 border border-orange-200 rounded-xl p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-orange-200/80 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-lg shadow-xs">
+              P
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Postman Collection &amp; Environment (Ready to Import)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-300">
+                  v2.1.0
+                </span>
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Download file JSON Postman resmi yang sudah dikonfigurasi lengkap dengan endpoint <code className="font-mono font-semibold text-orange-900">https://finance.ajnusa.com/api/v1</code>, query parameters, header autentikasi, dan auto test assertions.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => triggerDownload('/postman/FSPMS_SaaS_HRMS_Integration.postman_collection.json', 'FSPMS_SaaS_HRMS_Integration.postman_collection.json')}
+              className="px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+              title="Download file Postman Collection"
+            >
+              <Download size={14} />
+              <span>Download Collection (.json)</span>
+            </button>
+
+            <button
+              onClick={() => triggerDownload('/postman/FSPMS_Production.postman_environment.json', 'FSPMS_Production.postman_environment.json')}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+              title="Download file Postman Environment"
+            >
+              <Download size={14} />
+              <span>Download Environment (.json)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Steps to Import */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+          <div className="bg-white/90 border border-orange-200/80 rounded-lg p-3 space-y-1">
+            <div className="font-bold text-orange-950 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-orange-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
+              <span>Import ke Postman</span>
+            </div>
+            <p className="text-slate-600 text-[11px] leading-relaxed">
+              Buka aplikasi Postman, klik menu <strong>Import</strong> di pojok kiri atas, lalu pilih kedua file JSON yang di-download.
+            </p>
+          </div>
+
+          <div className="bg-white/90 border border-orange-200/80 rounded-lg p-3 space-y-1">
+            <div className="font-bold text-orange-950 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-orange-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
+              <span>Pilih Environment</span>
+            </div>
+            <p className="text-slate-600 text-[11px] leading-relaxed">
+              Di dropdown pojok kanan atas Postman, aktifkan environment <strong>FSPMS - Production (finance.ajnusa.com)</strong>.
+            </p>
+          </div>
+
+          <div className="bg-white/90 border border-orange-200/80 rounded-lg p-3 space-y-1">
+            <div className="font-bold text-orange-950 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-orange-600 text-white text-[10px] flex items-center justify-center font-bold">3</span>
+              <span>Isi Nilai apiKey</span>
+            </div>
+            <p className="text-slate-600 text-[11px] leading-relaxed">
+              Buka tab Environments, isi variabel <code className="font-mono font-semibold text-slate-800">apiKey</code> dengan key yang dibuat di halaman ini.
+            </p>
+          </div>
+
+          <div className="bg-white/90 border border-orange-200/80 rounded-lg p-3 space-y-1">
+            <div className="font-bold text-orange-950 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-orange-600 text-white text-[10px] flex items-center justify-center font-bold">4</span>
+              <span>Send Request!</span>
+            </div>
+            <p className="text-slate-600 text-[11px] leading-relaxed">
+              Klik <strong>Send</strong> pada folder <em>Laporan Pembayaran</em> atau <em>Detail Transaksi</em> untuk menerima JSON real-time.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* API Keys Table Card */}
       <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Key size={16} className="text-blue-600" />
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
             <h3 className="font-bold text-slate-900 text-sm">Daftar API Key Terdaftar</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Kunci API yang aktif digunakan untuk otentikasi request ke domain <code className="font-mono text-slate-700 font-semibold">{PROD_BASE_URL}</code>
+            </p>
           </div>
           <button
             onClick={fetchApiKeys}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Refresh"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
+            title="Refresh daftar key"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead className="bg-slate-50 text-slate-700 font-semibold text-[11px] uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Nama / Label Integrasi</th>
-                <th className="py-3 px-3">Token Prefix</th>
-                <th className="py-3 px-3">Hak Akses (Scopes)</th>
+                <th className="py-3 px-4">Nama Aplikasi / Integrasi</th>
+                <th className="py-3 px-3">Prefix Kunci</th>
+                <th className="py-3 px-3">Scope Izin</th>
                 <th className="py-3 px-3">Terakhir Digunakan</th>
                 <th className="py-3 px-3">Kedaluwarsa</th>
                 <th className="py-3 px-3 text-center">Status</th>
                 <th className="py-3 px-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-mono">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
@@ -435,36 +546,23 @@ if ($httpCode === 200) {
               ) : apiKeys.length > 0 ? (
                 apiKeys.map((key) => {
                   const isActive = key.status === 'ACTIVE';
-
                   return (
-                    <tr key={key.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-sans font-bold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                          <span>{key.name}</span>
-                        </div>
+                    <tr key={key.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">
+                        <div>{key.name}</div>
                         <div className="text-[11px] text-slate-400 font-normal mt-0.5">
-                          Dibuat: {new Date(key.created_at).toLocaleDateString('id-ID')} oleh {key.created_by}
+                          Dibuat: {new Date(key.created_at).toLocaleDateString('id-ID')}
                         </div>
                       </td>
 
                       <td className="py-3.5 px-3 font-mono font-bold text-slate-800">
-                        <div className="flex items-center gap-1.5">
-                          <code className="bg-slate-100 px-2 py-0.5 rounded text-blue-700 text-[11px]">
-                            {key.key_prefix}...
-                          </code>
-                          <button
-                            onClick={() => copyToClipboard(key.key_prefix)}
-                            className="text-slate-400 hover:text-slate-600 p-1"
-                            title="Salin Prefix"
-                          >
-                            <Copy size={12} />
-                          </button>
-                        </div>
+                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {key.key_prefix}...
+                        </span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-sans">
-                        <div className="flex flex-wrap gap-1">
+                      <td className="py-3.5 px-3">
+                        <div className="flex flex-wrap gap-1 max-w-xs">
                           {key.scopes ? (
                             key.scopes.split(',').map((s) => (
                               <span key={s} className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 font-mono">
@@ -472,23 +570,23 @@ if ($httpCode === 200) {
                               </span>
                             ))
                           ) : (
-                            <span className="text-slate-400 text-[11px]">-</span>
+                            <span className="text-slate-400 text-[11px]">Semua akses</span>
                           )}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-3 text-slate-600 font-sans text-[11px]">
+                      <td className="py-3.5 px-3 text-slate-600 text-[11px]">
                         {key.last_used_at ? (
-                          new Date(key.last_used_at).toLocaleString('id-ID', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })
+                          <div className="flex items-center gap-1 font-mono">
+                            <Clock size={12} className="text-slate-400" />
+                            <span>{new Date(key.last_used_at).toLocaleDateString('id-ID')} {new Date(key.last_used_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
                         ) : (
-                          <span className="text-slate-400 italic">Belum pernah digunakan</span>
+                          <span className="text-slate-400 italic">Belum pernah</span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-3 text-slate-600 font-sans text-[11px]">
+                      <td className="py-3.5 px-3 text-slate-600 text-[11px]">
                         {key.expires_at ? (
                           new Date(key.expires_at).toLocaleDateString('id-ID')
                         ) : (
@@ -496,9 +594,9 @@ if ($httpCode === 200) {
                         )}
                       </td>
 
-                      <td className="py-3.5 px-3 text-center font-sans">
+                      <td className="py-3.5 px-3 text-center">
                         <span className={`
-                          px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1
+                          px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1
                           ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}
                         `}>
                           {isActive ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
@@ -506,7 +604,7 @@ if ($httpCode === 200) {
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-center font-sans">
+                      <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           {isActive && (
                             <button
@@ -531,7 +629,7 @@ if ($httpCode === 200) {
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-400 font-sans">
+                  <td colSpan={7} className="py-10 text-center text-slate-400">
                     Belum ada API Key yang dibuat. Klik tombol <strong>Generate New API Key</strong> di atas untuk membuat kredensial pertama Anda.
                   </td>
                 </tr>
@@ -546,21 +644,21 @@ if ($httpCode === 200) {
         <div>
           <h2 className="font-bold text-slate-900 text-base flex items-center gap-2">
             <Code2 size={20} className="text-blue-600" />
-            <span>Panduan Integrasi SaaS HRMS (Developer Guide)</span>
+            <span>Dokumentasi Endpoint Integrasi (SaaS HRMS REST API)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Gunakan dokumentasi berikut untuk menghubungkan server/platform SaaS HRMS Anda ke REST API FinanceWebApps.
+            Gunakan spesifikasi endpoint di bawah ini untuk menghubungkan aplikasi backend SaaS HRMS ke Finance Portal.
           </p>
         </div>
 
         {/* Base URL and Auth Spec */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-            <div className="text-[10px] text-slate-400 uppercase font-sans font-bold mb-1">Base Endpoint URL</div>
-            <div className="flex items-center justify-between font-bold text-slate-800 select-all">
-              <span>{baseUrl}</span>
+            <div className="text-[10px] text-slate-400 uppercase font-sans font-bold mb-1">Production Base URL</div>
+            <div className="flex items-center justify-between font-bold text-blue-700 select-all">
+              <span>{PROD_BASE_URL}</span>
               <button
-                onClick={() => copyToClipboard(baseUrl)}
+                onClick={() => copyToClipboard(PROD_BASE_URL)}
                 className="text-slate-400 hover:text-slate-700 p-1"
                 title="Salin Base URL"
               >
@@ -571,17 +669,17 @@ if ($httpCode === 200) {
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
             <div className="text-[10px] text-slate-400 uppercase font-sans font-bold mb-1">Header Autentikasi</div>
-            <div className="flex items-center justify-between font-bold text-blue-700 select-all">
+            <div className="flex items-center justify-between font-bold text-slate-800 select-all">
               <span>X-API-Key: fspms_live_...</span>
-              <span className="text-[10px] font-sans text-slate-500">atau Bearer Token</span>
+              <span className="text-[10px] font-sans text-slate-500">atau Bearer &lt;key&gt;</span>
             </div>
           </div>
         </div>
 
-        {/* Endpoints List Accordion */}
+        {/* Endpoints List */}
         <div className="space-y-3">
-          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider text-slate-500">
-            Daftar Endpoint Terbuka untuk SaaS HRMS
+          <h3 className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
+            Daftar Endpoint Terbuka
           </h3>
 
           {/* Endpoint 1 */}
@@ -589,17 +687,17 @@ if ($httpCode === 200) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 font-mono">
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white">GET</span>
-                <span className="font-bold text-slate-900 text-xs sm:text-sm">/api/v1/integration/payment-reports</span>
+                <span className="font-bold text-slate-900 text-xs sm:text-sm">https://finance.ajnusa.com/api/v1/integration/payment-reports</span>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 Scope: read:payment_reports
               </span>
             </div>
-            <p className="text-xs text-slate-600 font-sans">
-              Mengambil ringkasan rekapitulasi pembayaran (Total Tagihan, Total Lunas, Sisa Pending/Overdue, serta rincian per Vendor/Provider). Cocok untuk dashboard expense di SaaS HRMS.
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Mengambil ringkasan rekapitulasi pembayaran (Total Tagihan, Total Lunas, Sisa Pending/Overdue, serta rincian per Vendor/Provider). Sangat ideal untuk modul expense tracking dan costing report di SaaS HRMS.
             </p>
-            <div className="text-[11px] text-slate-500 font-mono">
-              Query Parameters: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">period=YYYY-MM</code> (opsional), <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">start_date=YYYY-MM-DD</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">end_date=YYYY-MM-DD</code>
+            <div className="text-[11px] text-slate-600 font-mono bg-white p-2 rounded-lg border border-slate-200">
+              Query Parameters: <code className="text-blue-700 font-bold">period=YYYY-MM</code> (e.g. 2026-11), <code className="text-blue-700 font-bold">start_date=YYYY-MM-DD</code>, <code className="text-blue-700 font-bold">end_date=YYYY-MM-DD</code>
             </div>
           </div>
 
@@ -608,17 +706,17 @@ if ($httpCode === 200) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 font-mono">
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white">GET</span>
-                <span className="font-bold text-slate-900 text-xs sm:text-sm">/api/v1/integration/payments</span>
+                <span className="font-bold text-slate-900 text-xs sm:text-sm">https://finance.ajnusa.com/api/v1/integration/payments</span>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 Scope: read:payments
               </span>
             </div>
-            <p className="text-xs text-slate-600 font-sans">
-              Mengambil data detail jadwal dan bukti transaksi pembayaran (Nama Toko/Outlet, Circuit ID, Nama Vendor, Tanggal Jatuh Tempo, Nominal, Status Pembayaran).
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Mengambil data detail jadwal dan transaksi pembayaran (Nama Toko/Outlet, Circuit ID, Nama Vendor, Tanggal Jatuh Tempo, Nominal, Status Pembayaran).
             </p>
-            <div className="text-[11px] text-slate-500 font-mono">
-              Query Parameters: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">status=PAID|UPCOMING|OVERDUE</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">page=1</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200">limit=50</code>
+            <div className="text-[11px] text-slate-600 font-mono bg-white p-2 rounded-lg border border-slate-200">
+              Query Parameters: <code className="text-blue-700 font-bold">status=PAID|UPCOMING|OVERDUE</code>, <code className="text-blue-700 font-bold">period=YYYY-MM</code>, <code className="text-blue-700 font-bold">page=1</code>, <code className="text-blue-700 font-bold">limit=50</code>
             </div>
           </div>
 
@@ -627,13 +725,13 @@ if ($httpCode === 200) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 font-mono">
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white">GET</span>
-                <span className="font-bold text-slate-900 text-xs sm:text-sm">/api/v1/integration/health</span>
+                <span className="font-bold text-slate-900 text-xs sm:text-sm">https://finance.ajnusa.com/api/v1/integration/health</span>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                 Public / Health
               </span>
             </div>
-            <p className="text-xs text-slate-600 font-sans">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Memeriksa status operasional server dan memvalidasi apakah API Key yang digunakan valid dan aktif.
             </p>
           </div>
@@ -644,7 +742,7 @@ if ($httpCode === 200) {
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <div className="flex items-center gap-2">
               <Terminal size={16} className="text-slate-600" />
-              <span className="font-bold text-slate-800 text-xs">Contoh Kode Integrasi</span>
+              <span className="font-bold text-slate-800 text-xs">Contoh Kode Integrasi Siap Pakai</span>
             </div>
             <div className="flex items-center gap-1">
               {['curl', 'node', 'python', 'php'].map((tab) => (
@@ -652,7 +750,7 @@ if ($httpCode === 200) {
                   key={tab}
                   onClick={() => setActiveCodeTab(tab)}
                   className={`
-                    px-2.5 py-1 rounded text-xs font-bold uppercase transition-colors
+                    px-2.5 py-1 rounded text-xs font-semibold uppercase transition-colors
                     ${activeCodeTab === tab 
                       ? 'bg-blue-600 text-white' 
                       : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}
@@ -719,7 +817,7 @@ if ($httpCode === 200) {
               <button
                 onClick={runLiveTest}
                 disabled={testingApi}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {testingApi ? <RefreshCw size={13} className="animate-spin" /> : <Play size={13} />}
                 <span>{testingApi ? 'Menguji...' : 'Kirim Test Request'}</span>
@@ -749,33 +847,33 @@ if ($httpCode === 200) {
           <div className="bg-white border border-slate-200/80 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-xl my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Key className="text-blue-600" size={18} />
-                <span>Generate New API Key</span>
+                <Key size={18} className="text-blue-600" />
+                <span>Buat API Key Baru</span>
               </h3>
               <button
                 onClick={() => setCreateModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 text-lg font-bold"
               >
-                &times;
+                ✕
               </button>
             </div>
 
             <form onSubmit={handleCreateApiKey} className="space-y-4 text-xs">
               <div>
                 <label className="font-semibold text-slate-800">
-                  Nama / Label Aplikasi <span className="text-rose-500">*</span>
+                  Nama Key / Nama Platform *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. SaaS HRMS Production Sync"
+                  placeholder="e.g. SaaS HRMS Expense Sync Server / Production"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 mt-1 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Beri label yang jelas agar mudah mengidentifikasi sistem pemanggil API.
-                </p>
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  Identifikasi sistem atau server yang akan menggunakan kunci ini.
+                </span>
               </div>
 
               <div>
@@ -785,18 +883,18 @@ if ($httpCode === 200) {
                   onChange={(e) => setExpiresIn(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 mt-1 font-semibold text-slate-800"
                 >
-                  <option value="never">Tidak Pernah Kedaluwarsa (Never Expire)</option>
-                  <option value="365d">1 Tahun (365 Hari)</option>
-                  <option value="90d">90 Hari</option>
+                  <option value="never">Tanpa Batas Waktu (Never Expire - Direkomendasikan untuk Server)</option>
                   <option value="30d">30 Hari</option>
+                  <option value="90d">90 Hari</option>
+                  <option value="1y">1 Tahun</option>
                 </select>
               </div>
 
               <div>
                 <label className="font-semibold text-slate-800 block mb-1.5">
-                  Hak Akses Endpoint (Scopes)
+                  Scope Izin Akses (Permissions)
                 </label>
-                <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <label className="flex items-center gap-2 cursor-pointer font-sans">
                     <input
                       type="checkbox"
@@ -805,11 +903,11 @@ if ($httpCode === 200) {
                         if (e.target.checked) setScopes([...scopes, 'read:payment_reports']);
                         else setScopes(scopes.filter(s => s !== 'read:payment_reports'));
                       }}
-                      className="rounded text-blue-600"
+                      className="rounded text-blue-600 focus:ring-blue-500"
                     />
                     <div>
                       <div className="font-bold text-slate-800">read:payment_reports</div>
-                      <div className="text-[11px] text-slate-500">Mengakses ringkasan rekapitulasi pembayaran vendor</div>
+                      <div className="text-[11px] text-slate-500">Mengakses laporan rekapitulasi pembayaran &amp; pengeluaran per vendor.</div>
                     </div>
                   </label>
 
@@ -821,11 +919,11 @@ if ($httpCode === 200) {
                         if (e.target.checked) setScopes([...scopes, 'read:payments']);
                         else setScopes(scopes.filter(s => s !== 'read:payments'));
                       }}
-                      className="rounded text-blue-600"
+                      className="rounded text-blue-600 focus:ring-blue-500"
                     />
                     <div>
                       <div className="font-bold text-slate-800">read:payments</div>
-                      <div className="text-[11px] text-slate-500">Mengakses detail transaksi jadwal &amp; realisasi tagihan</div>
+                      <div className="text-[11px] text-slate-500">Membaca daftar rincian invoice transaksi pembayaran &amp; CID sirkuit.</div>
                     </div>
                   </label>
 
@@ -837,17 +935,17 @@ if ($httpCode === 200) {
                         if (e.target.checked) setScopes([...scopes, 'read:services']);
                         else setScopes(scopes.filter(s => s !== 'read:services'));
                       }}
-                      className="rounded text-blue-600"
+                      className="rounded text-blue-600 focus:ring-blue-500"
                     />
                     <div>
                       <div className="font-bold text-slate-800">read:services</div>
-                      <div className="text-[11px] text-slate-500">Mengakses daftar inventaris sirkuit &amp; layanan FO</div>
+                      <div className="text-[11px] text-slate-500">Membaca data master sirkuit &amp; langganan.</div>
                     </div>
                   </label>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
@@ -858,10 +956,9 @@ if ($httpCode === 200) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs"
                 >
-                  <Key size={14} />
-                  <span>{submitting ? 'Memproses...' : 'Generate API Key'}</span>
+                  {submitting ? 'Memproses...' : 'Buat & Generate Kunci'}
                 </button>
               </div>
             </form>
