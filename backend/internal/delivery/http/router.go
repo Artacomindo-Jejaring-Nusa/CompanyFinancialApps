@@ -4,6 +4,7 @@ import (
 	"finance-webapps/backend/config"
 	"finance-webapps/backend/internal/delivery/http/middleware"
 	v1 "finance-webapps/backend/internal/delivery/http/v1"
+	"finance-webapps/backend/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,6 +21,9 @@ type RouterDependencies struct {
 	ReportHandler          *v1.ReportHandler
 	AuditLogHandler        *v1.AuditLogHandler
 	HRMSClaimHandler       *v1.HRMSClaimHandler
+	APIKeyUsecase          domain.APIKeyUsecase
+	APIKeyHandler          *v1.APIKeyHandler
+	IntegrationHandler     *v1.IntegrationHandler
 }
 
 func SetupRouter(deps *RouterDependencies) *gin.Engine {
@@ -54,7 +58,7 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 			displayGroup.GET("/providers", deps.ProviderHandler.GetAll)
 		}
 
-		// Protected routes
+		// Protected routes (Admin & Web Dashboard via JWT)
 		protected := apiV1.Group("")
 		protected.Use(middleware.AuthMiddleware(deps.Config.JWTSecret))
 		{
@@ -137,7 +141,7 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 			// Audit Logs API
 			protected.GET("/audit-logs", middleware.RequireRole("admin", "finance_supervisor", "finance_manager", "auditor"), deps.AuditLogHandler.GetAll)
 
-			// HRMS Claims & Fund Requests Integration API
+			// HRMS Claims & Fund Requests API
 			hrms := protected.Group("/hrms")
 			{
 				hrms.GET("/claims", deps.HRMSClaimHandler.GetAll)
@@ -146,6 +150,25 @@ func SetupRouter(deps *RouterDependencies) *gin.Engine {
 				hrms.POST("/claims/:id/disburse", middleware.RequireRole("admin", "finance_staff", "finance_supervisor"), deps.HRMSClaimHandler.Disburse)
 				hrms.POST("/sync", middleware.RequireRole("admin", "finance_staff", "finance_supervisor"), deps.HRMSClaimHandler.SyncFromHRMS)
 			}
+
+			// API Keys Management API (Settings / Administration)
+			apiKeys := protected.Group("/api-keys")
+			apiKeys.Use(middleware.RequireRole("admin", "finance_supervisor", "finance_manager"))
+			{
+				apiKeys.GET("", deps.APIKeyHandler.GetAll)
+				apiKeys.POST("", deps.APIKeyHandler.Create)
+				apiKeys.PUT("/:id/revoke", deps.APIKeyHandler.Revoke)
+				apiKeys.DELETE("/:id", deps.APIKeyHandler.Delete)
+			}
+		}
+
+		// SaaS HRMS External Integration API (Authenticated via X-API-Key or Bearer token)
+		integration := apiV1.Group("/integration")
+		integration.Use(middleware.FlexibleAuthMiddleware(deps.Config.JWTSecret, deps.APIKeyUsecase))
+		{
+			integration.GET("/health", deps.IntegrationHandler.GetHealth)
+			integration.GET("/payment-reports", deps.IntegrationHandler.GetPaymentReports)
+			integration.GET("/payments", deps.IntegrationHandler.GetPaymentsList)
 		}
 	}
 

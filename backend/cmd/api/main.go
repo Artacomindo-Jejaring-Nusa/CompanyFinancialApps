@@ -31,6 +31,9 @@ func main() {
 	}
 
 	db, err := database.InitDB(cfg)
+	if err == nil {
+		_ = db.AutoMigrate(&domain.APIKey{})
+	}
 	if err != nil {
 		log.Fatalf("Database initialization failed: %v", err)
 	}
@@ -48,6 +51,7 @@ func main() {
 	paymentHistoryRepo := repository.NewPaymentHistoryRepository(db)
 	auditLogRepo := repository.NewAuditLogRepository(db)
 	hrmsClaimRepo := repository.NewHRMSClaimRepository(db)
+	apiKeyRepo := repository.NewAPIKeyRepository(db)
 
 	// Usecases
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg)
@@ -60,6 +64,7 @@ func main() {
 	dashboardUsecase := usecase.NewDashboardUsecase(db)
 	reportUsecase := usecase.NewReportUsecase(db)
 	hrmsClaimUsecase := usecase.NewHRMSClaimUsecase(hrmsClaimRepo, auditLogRepo, db)
+	apiKeyUsecase := usecase.NewAPIKeyUsecase(apiKeyRepo, auditLogRepo)
 
 	// Handlers
 	authHandler := v1.NewAuthHandler(authUsecase)
@@ -73,6 +78,8 @@ func main() {
 	reportHandler := v1.NewReportHandler(reportUsecase)
 	auditLogHandler := v1.NewAuditLogHandler(auditLogRepo)
 	hrmsClaimHandler := v1.NewHRMSClaimHandler(hrmsClaimUsecase)
+	apiKeyHandler := v1.NewAPIKeyHandler(apiKeyUsecase)
+	integrationHandler := v1.NewIntegrationHandler(db, paymentScheduleRepo)
 
 	// Router
 	router := deliveryHttp.SetupRouter(&deliveryHttp.RouterDependencies{
@@ -88,6 +95,9 @@ func main() {
 		ReportHandler:          reportHandler,
 		AuditLogHandler:        auditLogHandler,
 		HRMSClaimHandler:       hrmsClaimHandler,
+		APIKeyUsecase:          apiKeyUsecase,
+		APIKeyHandler:          apiKeyHandler,
+		IntegrationHandler:     integrationHandler,
 	})
 
 	listenAddr := fmt.Sprintf(":%s", cfg.ServerPort)

@@ -41,7 +41,8 @@ import {
   ChevronRight,
   PieChart,
   DollarSign,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Key
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -310,20 +311,9 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'FINANCIAL REPORTS & HRMS CLAIMS',
+      title: 'FINANCIAL REPORTS',
       items: [
         { name: 'Financial Reports (FO & Opex)', path: '/reports', icon: BarChart3 },
-        { 
-          name: 'Klaim & Pengajuan HRMS', 
-          path: '/hrms-reports', 
-          icon: Receipt,
-          badge: 'HRMS',
-          subItems: [
-            { name: 'Semua Pengajuan Dana', path: '/hrms-reports?tab=ALL', icon: Layers },
-            { name: 'Klaim Biaya / Reimbursement', path: '/hrms-reports?tab=REIMBURSEMENT', icon: FileSpreadsheet },
-            { name: 'Pengajuan Dana / Kasbon', path: '/hrms-reports?tab=FUND_REQUEST', icon: DollarSign },
-          ]
-        },
       ],
     },
     {
@@ -345,8 +335,9 @@ export default function MainLayout() {
       ],
     },
     {
-      title: 'ADMINISTRATION',
+      title: 'ADMINISTRATION & SETTINGS',
       items: [
+        ...(hasRole('admin', 'finance_supervisor', 'finance_manager') ? [{ name: 'API Integration', path: '/settings/api-keys', icon: Key, badge: 'SaaS HRMS' }] : []),
         ...(hasRole('admin') ? [{ name: 'User Management', path: '/users', icon: Users }] : []),
         ...(hasRole('admin', 'finance_supervisor', 'finance_manager', 'auditor') ? [{ name: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck }] : []),
       ],

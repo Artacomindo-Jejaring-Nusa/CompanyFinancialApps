@@ -13,7 +13,7 @@ import ServicesPage from './pages/ServicesPage';
 import ProjectsPage from './pages/ProjectsPage';
 import MasterDataPage from './pages/MasterDataPage';
 import ReportsPage from './pages/ReportsPage';
-import HrmsClaimsReportPage from './pages/HrmsClaimsReportPage';
+import ApiIntegrationPage from './pages/ApiIntegrationPage';
 import UserManagementPage from './pages/UserManagementPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import IndihomeConverterPage from './pages/IndihomeConverterPage';
@@ -69,8 +69,19 @@ export default function App() {
 
           <Route path="master-data" element={<MasterDataPage />} />
           <Route path="reports" element={<ReportsPage />} />
-          <Route path="hrms-reports" element={<HrmsClaimsReportPage />} />
-          <Route path="hrms/claims" element={<HrmsClaimsReportPage />} />
+
+          {/* SaaS HRMS API Integration & API Key Management */}
+          <Route
+            path="settings/api-keys"
+            element={
+              <ProtectedRoute roles={['admin', 'finance_supervisor', 'finance_manager']}>
+                <ApiIntegrationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="api-integration" element={<Navigate to="/settings/api-keys" replace />} />
+          <Route path="hrms-reports" element={<Navigate to="/settings/api-keys" replace />} />
+          <Route path="hrms/claims" element={<Navigate to="/settings/api-keys" replace />} />
 
           {/* Indihome Reconciliation & Transaction Status Converter */}
           <Route path="reconciliation/indihome" element={<IndihomeConverterPage />} />
