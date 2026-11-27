@@ -422,24 +422,42 @@ export default function VendorInvoicesPage() {
     const base = item.remaining_amount || item.amount || 0;
     setPayModalItem(item);
 
-    const savedHpp = item.service?.attributes?.hpp !== undefined 
-      ? Number(item.service.attributes.hpp) 
-      : Math.round(Number(base) / 1.11);
-    const savedTax = item.service?.attributes?.tax !== undefined 
-      ? Number(item.service.attributes.tax) 
-      : (Number(base) - savedHpp);
-    const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
-      ? Number(item.service.attributes.bank_charge) 
-      : 0;
+    let savedHpp = 0;
+    let savedTax = 0;
+    let savedAdminFee = 0;
+
+    if (item.service?.attributes?.hpp !== undefined && item.service?.attributes?.hpp !== null) {
+      savedHpp = parseFloat(item.service.attributes.hpp) || 0;
+      if (item.service?.attributes?.tax !== undefined && item.service?.attributes?.tax !== null) {
+        savedTax = parseFloat(item.service.attributes.tax) || 0;
+      } else if (item.service?.attributes?.include_ppn) {
+        savedTax = Math.round(savedHpp * 0.11);
+      } else {
+        savedTax = 0;
+      }
+    } else {
+      savedHpp = Number(base);
+      savedTax = 0;
+    }
+
+    if (item.service?.attributes?.bank_charge !== undefined && item.service?.attributes?.bank_charge !== null) {
+      savedAdminFee = parseFloat(item.service.attributes.bank_charge) || 0;
+    } else {
+      const notes = item.notes || '';
+      const feeMatch = notes.match(/Biaya Admin Bank:\s*Rp\.?\s*([0-9.,]+)/i);
+      if (feeMatch) {
+        savedAdminFee = parseFloat(feeMatch[1].replace(/\./g, '').replace(/,/g, '.')) || 0;
+      }
+    }
 
     const notes = item.notes || '';
     const invMatch = notes.match(/No\.?\s*Inv:\s*([^\s|,]+)/i);
     const fakturMatch = notes.match(/Faktur:\s*([^\s|,]+)/i);
 
     let pureBase = Number(base);
-    if (item.service?.attributes?.hpp !== undefined) {
+    if (savedHpp > 0 && Math.abs((savedHpp + savedTax) - Number(base)) < 1) {
       pureBase = savedHpp + savedTax;
-    } else if (pureBase >= savedAdminFee && savedAdminFee > 0) {
+    } else if (savedAdminFee > 0 && pureBase >= savedAdminFee && Math.abs((pureBase - savedAdminFee) - savedHpp) < 1) {
       pureBase = pureBase - savedAdminFee;
     }
 
@@ -488,6 +506,7 @@ export default function VendorInvoicesPage() {
         payment_reference: paymentRef || `TRX-${Date.now()}`,
         payment_method: paymentMethod,
         notes: combinedNotes.trim(),
+        is_full_settlement: true,
       };
 
       const res = await api.post('/payment-schedules/mark-as-paid', payload);
@@ -506,16 +525,10 @@ export default function VendorInvoicesPage() {
     if (!item) return;
     setSubmitting(true);
     try {
-      const base = item.remaining_amount || item.amount || 0;
+      const totalAmount = Number(item.remaining_amount || item.amount || 0);
       const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
         ? Number(item.service.attributes.bank_charge) 
         : 0;
-      let totalAmount = Number(base);
-      if (item.service?.attributes?.hpp !== undefined) {
-        const hppVal = Number(item.service.attributes.hpp) || 0;
-        const taxVal = Number(item.service.attributes.tax) || 0;
-        totalAmount = hppVal + taxVal + savedAdminFee;
-      }
       
       const provCode = (item.service?.provider?.provider_code || item.service?.provider?.provider_name || 'VND')
         .substring(0, 4)
@@ -524,7 +537,7 @@ export default function VendorInvoicesPage() {
       const autoRef = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${provCode}-${Date.now().toString().slice(-4)}`;
 
       let notesCombined = item.notes || '';
-      if (savedAdminFee > 0) {
+      if (savedAdminFee > 0 && !notesCombined.includes('Biaya Admin Bank')) {
         notesCombined += ` | Biaya Admin Bank: ${formatIDR(savedAdminFee)}`;
       }
 
@@ -535,6 +548,7 @@ export default function VendorInvoicesPage() {
         payment_reference: autoRef,
         payment_method: 'Bank Transfer (BCA)',
         notes: (notesCombined.trim() || 'Pelunasan Cepat (Instant Paid)'),
+        is_full_settlement: true,
       };
 
       const res = await api.post('/payment-schedules/mark-as-paid', payload);

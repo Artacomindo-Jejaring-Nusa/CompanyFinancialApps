@@ -401,8 +401,10 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
   const handleHppChange = (val) => {
     const numHpp = parseFloat(val) || 0;
-    const numTax = Math.round(numHpp * 0.11);
-    const total = numHpp + numTax;
+    const currentTax = parseFloat(formData.attributes?.tax);
+    const numTax = (!isNaN(currentTax) && currentTax === 0) ? 0 : (formData.attributes?.include_ppn ? Math.round(numHpp * 0.11) : (isNaN(currentTax) ? 0 : currentTax));
+    const numCharge = parseFloat(formData.attributes?.bank_charge) || 0;
+    const total = numHpp + numTax + numCharge;
     setFormData((prev) => ({
       ...prev,
       amount: total,
@@ -417,20 +419,25 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
   const handleTaxChange = (val) => {
     const numTax = parseFloat(val) || 0;
     const numHpp = parseFloat(formData.attributes?.hpp) || 0;
+    const numCharge = parseFloat(formData.attributes?.bank_charge) || 0;
     setFormData((prev) => ({
       ...prev,
-      amount: numHpp + numTax,
+      amount: numHpp + numTax + numCharge,
       attributes: {
         ...prev.attributes,
         tax: numTax,
+        include_ppn: numTax > 0,
       },
     }));
   };
 
   const handleBankChargeChange = (val) => {
     const numCharge = parseFloat(val) || 0;
+    const numHpp = parseFloat(formData.attributes?.hpp) || 0;
+    const numTax = parseFloat(formData.attributes?.tax) || 0;
     setFormData((prev) => ({
       ...prev,
+      amount: numHpp + numTax + numCharge,
       attributes: {
         ...prev.attributes,
         bank_charge: numCharge,
@@ -488,15 +495,15 @@ export default function ServicesPage({ defaultCategory = 'ALL' }) {
 
     let itemHpp = item.attributes?.hpp;
     let itemTax = item.attributes?.tax;
-    let itemCharge = item.attributes?.bank_charge || 0;
-    const baseAmount = item.amount || 0;
+    let itemCharge = item.attributes?.bank_charge !== undefined ? parseFloat(item.attributes.bank_charge) : 0;
+    const baseAmount = parseFloat(item.amount) || 0;
 
     if (itemHpp === undefined || itemHpp === null) {
       if (item.attributes?.include_ppn || /ppn|tax/i.test(item.service_name)) {
-        itemHpp = Math.round(baseAmount / 1.11);
-        itemTax = baseAmount - itemHpp;
+        itemHpp = Math.round((baseAmount - itemCharge) / 1.11);
+        itemTax = (baseAmount - itemCharge) - itemHpp;
       } else {
-        itemHpp = baseAmount;
+        itemHpp = Math.max(0, baseAmount - itemCharge);
         itemTax = 0;
       }
     }

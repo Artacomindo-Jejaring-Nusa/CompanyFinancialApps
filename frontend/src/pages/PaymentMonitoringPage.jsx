@@ -328,8 +328,8 @@ export default function PaymentMonitoringPage() {
         savedTax = 0;
       }
     } else {
-      savedHpp = Math.round(base / 1.11);
-      savedTax = base - savedHpp;
+      savedHpp = base;
+      savedTax = 0;
     }
 
     if (item.service?.attributes?.bank_charge !== undefined && item.service?.attributes?.bank_charge !== null) {
@@ -343,9 +343,9 @@ export default function PaymentMonitoringPage() {
     }
 
     let pureBase = base;
-    if (savedHpp > 0) {
+    if (savedHpp > 0 && Math.abs((savedHpp + savedTax) - base) < 1) {
       pureBase = savedHpp + savedTax;
-    } else if (base >= savedAdminFee && savedAdminFee > 0) {
+    } else if (base >= savedAdminFee && savedAdminFee > 0 && Math.abs((base - savedAdminFee) - savedHpp) < 1) {
       pureBase = base - savedAdminFee;
     }
 
@@ -394,6 +394,7 @@ export default function PaymentMonitoringPage() {
         payment_reference: paymentRef || `TRX-${Date.now()}`,
         payment_method: paymentMethod,
         notes: combinedNotes.trim(),
+        is_full_settlement: true,
       };
 
       const res = await api.post('/payment-schedules/mark-as-paid', payload);
@@ -412,16 +413,10 @@ export default function PaymentMonitoringPage() {
     if (!item) return;
     setSubmitting(true);
     try {
-      const base = item.remaining_amount || item.amount || 0;
+      const totalAmount = Number(item.remaining_amount || item.amount || 0);
       const savedAdminFee = item.service?.attributes?.bank_charge !== undefined 
         ? Number(item.service.attributes.bank_charge) 
         : 0;
-      let totalAmount = Number(base);
-      if (item.service?.attributes?.hpp !== undefined) {
-        const hppVal = Number(item.service.attributes.hpp) || 0;
-        const taxVal = Number(item.service.attributes.tax) || 0;
-        totalAmount = hppVal + taxVal + savedAdminFee;
-      }
       
       const provCode = (item.service?.provider?.provider_code || item.service?.provider?.provider_name || 'VND')
         .substring(0, 4)
@@ -430,7 +425,7 @@ export default function PaymentMonitoringPage() {
       const autoRef = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${provCode}-${Date.now().toString().slice(-4)}`;
 
       let notesCombined = item.notes || '';
-      if (savedAdminFee > 0) {
+      if (savedAdminFee > 0 && !notesCombined.includes('Biaya Admin Bank')) {
         notesCombined += ` | Biaya Admin Bank: ${formatIDR(savedAdminFee)}`;
       }
 
@@ -441,6 +436,7 @@ export default function PaymentMonitoringPage() {
         payment_reference: autoRef,
         payment_method: 'Bank Transfer (BCA)',
         notes: (notesCombined.trim() || 'Pelunasan Cepat (Instant Paid)'),
+        is_full_settlement: true,
       };
 
       const res = await api.post('/payment-schedules/mark-as-paid', payload);

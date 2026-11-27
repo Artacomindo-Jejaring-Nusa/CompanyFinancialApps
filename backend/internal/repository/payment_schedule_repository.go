@@ -19,7 +19,7 @@ func NewPaymentScheduleRepository(db *gorm.DB) domain.PaymentScheduleRepository 
 }
 
 func CalculateScheduleStatus(schedule *domain.PaymentSchedule, today time.Time) {
-	if schedule.Status == "PAID" || schedule.Status == "CANCELLED" {
+	if schedule.Status == "PAID" || schedule.Status == "CANCELLED" || schedule.Status == "PARTIALLY_PAID" {
 		return
 	}
 	dueDay := time.Date(schedule.DueDate.Year(), schedule.DueDate.Month(), schedule.DueDate.Day(), 0, 0, 0, 0, today.Location())
@@ -52,7 +52,7 @@ func (r *paymentScheduleRepository) GetAll(ctx context.Context, filter domain.Pa
 	// Keep database updated: mark past-due unpaid schedules as OVERDUE
 	go func() {
 		_ = r.db.Model(&domain.PaymentSchedule{}).
-			Where("due_date < ? AND status NOT IN ('PAID', 'CANCELLED', 'OVERDUE')", today).
+			Where("due_date < ? AND status NOT IN ('PAID', 'CANCELLED', 'OVERDUE', 'PARTIALLY_PAID')", today).
 			Update("status", "OVERDUE")
 	}()
 

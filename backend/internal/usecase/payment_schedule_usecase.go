@@ -110,7 +110,8 @@ func (u *paymentScheduleUsecase) MarkAsPaid(ctx context.Context, req domain.Mark
 		return nil, errors.New("invalid payment date format (expected YYYY-MM-DD)")
 	}
 
-	if paymentDate.After(time.Now()) {
+	// Allow up to 48 hours in future to prevent timezone discrepancies between local client (e.g. UTC+7) and server
+	if paymentDate.After(time.Now().Add(48 * time.Hour)) {
 		return nil, errors.New("payment date cannot be in the future")
 	}
 
@@ -127,13 +128,21 @@ func (u *paymentScheduleUsecase) MarkAsPaid(ctx context.Context, req domain.Mark
 		return nil, errors.New("payment amount must be greater than zero")
 	}
 
-	newRemaining := schedule.RemainingAmount - req.PaymentAmount
+	// Full settlement logic: default to true for single invoice mark-as-paid confirmations
+	isFull := true
+	if req.IsFullSettlement != nil {
+		isFull = *req.IsFullSettlement
+	}
+
 	var newStatus string
-	if newRemaining <= 0 {
+	var newRemaining float64
+	if isFull || req.PaymentAmount >= schedule.RemainingAmount {
 		newStatus = "PAID"
 		newRemaining = 0
+		schedule.Amount = req.PaymentAmount // Update to actual finalized realization payment amount
 	} else {
 		newStatus = "PARTIALLY_PAID"
+		newRemaining = schedule.RemainingAmount - req.PaymentAmount
 	}
 
 	schedule.RemainingAmount = newRemaining
@@ -172,13 +181,17 @@ func (u *paymentScheduleUsecase) MarkAsPaid(ctx context.Context, req domain.Mark
 			nextPeriod := nextDate.Format("2006-01")
 			_, errExists := u.psRepo.GetByServiceAndPeriod(ctx, schedule.ServiceID, nextPeriod)
 			if errExists != nil {
+				nextAmount := schedule.Amount
+				if schedule.Service.Amount > 0 {
+					nextAmount = schedule.Service.Amount
+				}
 				nextSchedule := domain.PaymentSchedule{
 					ID:              uuid.New(),
 					ServiceID:       schedule.ServiceID,
 					Period:          nextPeriod,
 					DueDate:         nextDate,
-					Amount:          schedule.Amount,
-					RemainingAmount: schedule.Amount,
+					Amount:          nextAmount,
+					RemainingAmount: nextAmount,
 					Status:          "UPCOMING",
 					Notes:           fmt.Sprintf("Auto-generated for next %s billing cycle", billingCycle),
 				}
@@ -228,14 +241,20 @@ func (u *paymentScheduleUsecase) BulkMarkAsPaid(ctx context.Context, req domain.
 			continue
 		}
 
+		payAmt := schedule.RemainingAmount
+		if payAmt <= 0 {
+			payAmt = schedule.Amount
+		}
+		isFull := true
 		singleReq := domain.MarkAsPaidRequest{
 			ScheduleID:       id,
 			PaymentDate:      req.PaymentDate,
-			PaymentAmount:    schedule.RemainingAmount, // Bulk mark as paid full remaining amount
+			PaymentAmount:    payAmt,
 			PaymentReference: req.PaymentReference,
 			PaymentMethod:    req.PaymentMethod,
 			PaymentProof:     req.PaymentProof,
 			Notes:            req.Notes,
+			IsFullSettlement: &isFull,
 		}
 
 		_, err = u.MarkAsPaid(ctx, singleReq, userID)

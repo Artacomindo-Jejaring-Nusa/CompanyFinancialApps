@@ -30,6 +30,7 @@ type MarkAsPaidRequest struct {
 	PaymentMethod    string    `json:"payment_method"`
 	PaymentProof     string    `json:"payment_proof"`
 	Notes            string    `json:"notes"`
+	IsFullSettlement *bool     `json:"is_full_settlement"` // default true: full settlement of schedule
 }
 
 type BulkMarkAsPaidRequest struct {
