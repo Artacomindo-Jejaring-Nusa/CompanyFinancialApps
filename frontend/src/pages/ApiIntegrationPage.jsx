@@ -7,12 +7,7 @@ import {
   Check, 
   Trash2, 
   Download,
-  Terminal,
-  Play,
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
-  ExternalLink
+  RefreshCw
 } from 'lucide-react';
 
 const PROD_BASE_URL = 'https://finance.ajnusa.com/api/v1';
@@ -32,20 +27,6 @@ export default function ApiIntegrationPage() {
   // Newly Generated Key Modal (One-time Display)
   const [newKeyData, setNewKeyData] = useState(null);
   const [copiedKey, setCopiedKey] = useState(false);
-
-  // Documentation tab state
-  const [activeCodeTab, setActiveCodeTab] = useState('curl'); // 'curl' | 'node' | 'python' | 'php'
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  // Live API Tester State
-  const [testEndpoint, setTestEndpoint] = useState('/integration/payment-reports');
-  const [testApiKey, setTestApiKey] = useState('');
-  const [testingApi, setTestingApi] = useState(false);
-  const [testResponse, setTestResponse] = useState(null);
-
-  const activeBaseUrl = window.location.origin.includes('localhost')
-    ? 'http://localhost:8080/api/v1'
-    : PROD_BASE_URL;
 
   useEffect(() => {
     fetchApiKeys();
@@ -81,7 +62,6 @@ export default function ApiIntegrationPage() {
       const res = await api.post('/api-keys', payload);
       if (res.success && res.data) {
         setNewKeyData(res.data);
-        setTestApiKey(res.data.plain_key || '');
         setCreateModalOpen(false);
         setNameInput('');
         fetchApiKeys();
@@ -123,15 +103,10 @@ export default function ApiIntegrationPage() {
     }
   };
 
-  const copyToClipboard = (text, isKey = false) => {
+  const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    if (isKey) {
-      setCopiedKey(true);
-      setTimeout(() => setCopiedKey(false), 2500);
-    } else {
-      setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2500);
-    }
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2500);
   };
 
   const triggerDownload = (url, filename) => {
@@ -143,98 +118,8 @@ export default function ApiIntegrationPage() {
     document.body.removeChild(a);
   };
 
-  const runLiveTest = async () => {
-    setTestingApi(true);
-    setTestResponse(null);
-    const keyToUse = testApiKey || (newKeyData?.plain_key) || (apiKeys.find(k => k.status === 'ACTIVE')?.key_prefix) || 'YOUR_API_KEY';
-
-    try {
-      const res = await fetch(`${activeBaseUrl}${testEndpoint}`, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': keyToUse,
-          'Content-Type': 'application/json',
-        },
-      });
-      const data = await res.json();
-      setTestResponse({
-        status: res.status,
-        statusText: res.statusText,
-        data,
-      });
-    } catch (err) {
-      setTestResponse({
-        status: 500,
-        statusText: 'Client Network Error',
-        data: { error: err.message },
-      });
-    } finally {
-      setTestingApi(false);
-    }
-  };
-
-  const getCodeSnippet = () => {
-    const keyPlaceholder = testApiKey || (newKeyData?.plain_key) || 'fspms_live_abcdef1234567890';
-    const targetUrl = `${PROD_BASE_URL}/integration/payment-reports`;
-
-    switch (activeCodeTab) {
-      case 'curl':
-        return `# cURL Request
-curl -X GET "${targetUrl}?period=2026-11" \\
-  -H "X-API-Key: ${keyPlaceholder}" \\
-  -H "Accept: application/json"`;
-
-      case 'node':
-        return `// Node.js (Axios)
-import axios from 'axios';
-
-const response = await axios.get('${targetUrl}', {
-  headers: {
-    'X-API-Key': '${keyPlaceholder}',
-    'Accept': 'application/json'
-  },
-  params: {
-    period: '2026-11'
-  }
-});
-
-console.log(response.data);`;
-
-      case 'python':
-        return `# Python (requests)
-import requests
-
-url = "${targetUrl}"
-headers = {
-    "X-API-Key": "${keyPlaceholder}",
-    "Accept": "application/json"
-}
-params = {"period": "2026-11"}
-
-response = requests.get(url, headers=headers, params=params)
-print(response.json())`;
-
-      case 'php':
-        return `<?php
-// PHP cURL
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, "${targetUrl}?period=2026-11");
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "X-API-Key: ${keyPlaceholder}",
-    "Accept: application/json"
-]);
-
-$response = curl_exec($ch);
-curl_close($ch);
-print_r(json_decode($response, true));`;
-      default:
-        return '';
-    }
-  };
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 font-sans">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
@@ -309,7 +194,7 @@ print_r(json_decode($response, true));`;
               {newKeyData.plain_key}
             </span>
             <button
-              onClick={() => copyToClipboard(newKeyData.plain_key, true)}
+              onClick={() => copyToClipboard(newKeyData.plain_key)}
               className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded shrink-0 flex items-center gap-1"
             >
               {copiedKey ? <Check size={13} /> : <Copy size={13} />}
@@ -422,138 +307,6 @@ print_r(json_decode($response, true));`;
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Integration Endpoints & Code */}
-      <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
-        <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-          Dokumentasi Endpoint
-        </h2>
-
-        {/* Endpoints Table */}
-        <div className="space-y-2 text-xs">
-          <div className="border border-slate-200 rounded p-2.5 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-            <div>
-              <div className="font-mono font-bold text-slate-900">
-                <span className="text-emerald-700 mr-2">GET</span>
-                <span>/api/v1/integration/health</span>
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Cek status koneksi server dan validitas API Key.
-              </div>
-            </div>
-            <span className="text-[10px] text-slate-400 font-mono">Public / Health</span>
-          </div>
-
-          <div className="border border-slate-200 rounded p-2.5 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-            <div>
-              <div className="font-mono font-bold text-slate-900">
-                <span className="text-emerald-700 mr-2">GET</span>
-                <span>/api/v1/integration/payment-reports</span>
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Rekap pembayaran per vendor &amp; total tagihan. Params: <code className="font-mono font-bold text-slate-700">period=YYYY-MM</code>, <code className="font-mono font-bold text-slate-700">start_date</code>, <code className="font-mono font-bold text-slate-700">end_date</code>
-              </div>
-            </div>
-            <span className="text-[10px] text-blue-700 font-mono">read:payment_reports</span>
-          </div>
-
-          <div className="border border-slate-200 rounded p-2.5 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-            <div>
-              <div className="font-mono font-bold text-slate-900">
-                <span className="text-emerald-700 mr-2">GET</span>
-                <span>/api/v1/integration/payments</span>
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Daftar rincian jadwal pembayaran. Params: <code className="font-mono font-bold text-slate-700">status=PAID|UPCOMING</code>, <code className="font-mono font-bold text-slate-700">page=1</code>, <code className="font-mono font-bold text-slate-700">limit=50</code>
-              </div>
-            </div>
-            <span className="text-[10px] text-blue-700 font-mono">read:payments</span>
-          </div>
-        </div>
-
-        {/* Code Snippets */}
-        <div className="space-y-2 pt-2 border-t border-slate-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-700">Contoh Kode</span>
-            <div className="flex items-center gap-1">
-              {['curl', 'node', 'python', 'php'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveCodeTab(tab)}
-                  className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${
-                    activeCodeTab === tab 
-                      ? 'bg-slate-800 text-white' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {tab === 'node' ? 'Node.js' : tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative">
-            <pre className="bg-slate-900 text-slate-100 p-3.5 rounded text-xs font-mono overflow-x-auto leading-relaxed">
-              <code>{getCodeSnippet()}</code>
-            </pre>
-            <button
-              onClick={() => copyToClipboard(getCodeSnippet())}
-              className="absolute right-2 top-2 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs flex items-center gap-1 border border-slate-700"
-            >
-              {copiedCode ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-              <span>{copiedCode ? 'Copied' : 'Copy'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Compact Live Tester */}
-        <div className="space-y-2 pt-2 border-t border-slate-200">
-          <div className="text-xs font-semibold text-slate-700">Test API Langsung</div>
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
-            <div className="sm:col-span-4">
-              <select
-                value={testEndpoint}
-                onChange={(e) => setTestEndpoint(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 font-mono text-slate-800"
-              >
-                <option value="/integration/payment-reports">GET /integration/payment-reports</option>
-                <option value="/integration/payments">GET /integration/payments</option>
-                <option value="/integration/health">GET /integration/health</option>
-              </select>
-            </div>
-            <div className="sm:col-span-6">
-              <input
-                type="text"
-                placeholder="Masukkan API Key (X-API-Key)"
-                value={testApiKey}
-                onChange={(e) => setTestApiKey(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded p-2 font-mono text-slate-800"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <button
-                onClick={runLiveTest}
-                disabled={testingApi}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {testingApi ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
-                <span>{testingApi ? 'Testing...' : 'Test'}</span>
-              </button>
-            </div>
-          </div>
-
-          {testResponse && (
-            <div className="space-y-1">
-              <div className="text-[11px] font-mono text-slate-500">
-                Response: <span className={testResponse.status === 200 ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'}>HTTP {testResponse.status} {testResponse.statusText}</span>
-              </div>
-              <pre className="bg-slate-900 text-emerald-400 p-3 rounded text-xs font-mono overflow-x-auto max-h-48 leading-relaxed">
-                <code>{JSON.stringify(testResponse.data, null, 2)}</code>
-              </pre>
-            </div>
-          )}
         </div>
       </div>
 
